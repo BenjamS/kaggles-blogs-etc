@@ -1,0 +1,194 @@
+---
+title: "Inequality = fragile growth"
+author: "Candelario"
+date: "February 4, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE, message=FALSE, warning=FALSE, fig.align="center", echo=F}
+knitr::opts_chunk$set(echo = TRUE)
+options(warn = -1); options(scipen = 999)
+library(plyr)
+library(tidyr)
+library(dplyr)
+library(zoo)
+library(ggplot2)
+library(ggrepel)
+library(ggthemes)
+library(formattable)
+library(broom)
+library(knitr)
+```
+
+When I was 24 years old, the 1990s had just ended, and I was in Botswana on a USAID project. An Australian consultant said to me, "It's ok to be a Marxist when you're in your twenties. In fact, if you're not a Marxist when you're in your twenties then you haven't got a heart. However, if you're still a Marxist when you're forty, then you haven't got a brain."
+
+It was a turbulent time, mentally, for me. My background was in the liberal arts, but I wanted to do much more than sit around and be jaded and world-weary, or to conjure up emotional, self-indulgent notions of changing the world which go nowhere (which is mostly what, it turns out, a liberal arts degree is good for).
+
+It was June, 2001, to be more specific. The infamous terrorist attacks that would come three months later have so transfigured all subsequent remembering that it is very difficult, nowadays, to put oneself in a June, 2001 frame of mind. But let's try. Economic neo-liberalism was at the apex of its momentum. Our fearless leaders at the World Bank and IMF, intoxicated with the idea that "capitalism" had recently triumphed over "communism", commanded developing nations to slash their social safety nets and throw open their markets, or else. There was talk of the "end of history". If you had anything to do with development, you could hardly go anywhere without someone shoving the "Lexus and the Olive Tree" or Landes' "The Wealth and Poverty of Nations" in your face.
+
+And so this was the turbulent thing. With a heart full of Mayakovsky, Marcuse, Foucault, etc., I set out to comprehend Friedman, Greenspan, Fukuyama, etc.--you know, the curators of the predominant neoliberal narrative. I felt that the explanatory frameworks set forth by the Marcuses and Foucaults (and such) anticipated and described the Fukuyamas and Greenspans of the world with startling exactitude; while the proponents of neoliberal policy, on the other hand, demolished entire armies of straw Marcuses and Foucaults with sickening, animal farm arogance--which they themselves (and their New York Times "critics") often mistook for analytical prowess--and oftentimes without ever having read the works of their targets.
+
+Bear with me as I vent some pent up frustration.
+
+The worst of it is not the intellectual affrontery. The idea that you just ensure that "job creating" elites are absolutely empowered, labor forces elastic, and that wealth would trickle down... in Colombia this translated into record numbers of human rights abuses.
+
+The rest is (a very sad) history. Marx said that history always repeats itself--first as tragedy, second as farse. But it seems to me there is something about this latest incarnation of well-worn historical cycles that is both tragic and farsical--and not in a hip, Samuel Beckett way, or any other remotely redeeming way.
+
+
+
+Anyways, you don't hear much from the trickle down people these days. You'd hardly know they ruled the world a short time ago. Oh and hey, you wanna know two books that no one is shoving in my face anymore? (See figure 1.)
+
+```{r, fig.align="center", echo=F,message=FALSE,}
+df_lob <- read.csv("LexusOliveTree.csv", stringsAsFactors = F)
+df_wpn <- read.csv("WealthPovertyNations.csv", stringsAsFactors = F)
+df_lob$Book <- "The Lexus and the Olive Tree"
+df_wpn$Book <- "The Wealth and Poverty of Nations"
+colnames(df_lob)[2] <- "Google Trend"
+colnames(df_wpn)[2] <- "Google Trend"
+df <- rbind(df_lob, df_wpn)
+colnames(df)[1] <- "Date"
+df$Date <- as.yearmon(df$Date)
+ggplot(df, aes(x = Date, y = `Google Trend`, group = Book, color = Book)) + geom_line() + labs(title = "Figure 1: Two books no one is shoving in my face anymore") + theme_economist() + theme(axis.title.x=element_blank(), legend.title=element_blank())
+```
+
+Finally, terms like "pro-poor" and "financial inclusion" are moving to the center of mainstream development discourse. Most importantly, I think, are a crop of recent (IMF-funded!) studies that put to rest the horseshit about a rising tide lifting all boats. As it turns out, there   There is enough data out there that you can check for yourself. Using the World Bank's World Development Indicators (WDI) and the United Nations University Income Inequality Database (WIID 3.4), ... I fished around for a model ... there are a lot of amazing variables in the WDI data. Unfortunately, only a small fraction of these have reasonably complete data.     Growth does not equal prosperity for all.  This is mostly thanks to data  Google () for details, but I had some fun looking at the data myself.
+
+
+
+```{r, echo=F, message=FALSE,}
+country_vec <- c("Tanzania", "India", "China", "United States", "Malawi", "Argentina", 
+                 "Colombia", "Brazil", "Nigeria", "Saudi Arabia", "Qatar","Mali","Sierra Leone",
+                 "South Africa","Uganda", "Kenya", "Burundi", "Rwanda", "Botswana", "Ghana",
+                 "Zambia", "Mozambique", "Namibia")
+#unique(WDI_raw$Country)
+#unique(WDI_raw$Indicator)
+#------------------------------
+WDI_raw <- read.csv("WDIData.csv", stringsAsFactors = F)
+WDI_raw$Country.Code <- NULL
+WDI_raw$Indicator.Code <- NULL
+WDI_raw$X <- NULL
+colnames(WDI_raw)[1:2] <- c("Country", "Indicator")
+WDI_raw$Country <- as.character(WDI_raw$Country)
+WDI_raw$Indicator <- as.character(WDI_raw$Indicator)
+#unique(WDI_raw$Indicator)
+colnames(WDI_raw)[3:ncol(WDI_raw)] <- as.character(c(1960:2017))
+WDI_long <- WDI_raw %>% gather(Year, Value, `1960`:`2017`)
+#WDI_long <- subset(WDI_long, Year %in% c(2011))
+# indicator_vec <- c("GINI index (World Bank estimate)", 
+#                    "Depth of the food deficit (kilocalories per person per day)", 
+#                    "Total natural resources rents (% of GDP)",
+#                    "GDP per capita (constant 2010 US$)",
+#                    "GDP per capita, PPP (constant 2011 international $)",
+#                    "GDP per person employed (constant 2011 PPP $)",
+#                    "GNI per capita (constant 2010 US$)",
+#                    "GNI per capita growth (annual %)",
+#                    "GNI per capita, Atlas method (current US$)")
+indicator_vec <- c("Total natural resources rents (% of GDP)",
+                   "GDP per capita (constant 2010 US$)",
+                   "GINI index (World Bank estimate)",
+                   "Unemployment, total (% of total labor force) (modeled ILO estimate)",
+                   "Research and development expenditure (% of GDP)",
+                   "Rural population (% of total population)",
+                   "School enrollment, tertiary (% gross)",
+                   "Trade (% of GDP)",
+                   "Social contributions (% of revenue)",
+                   "Share of youth not in education, employment or training, total (% of youth population)",
+                   "Population ages 15-64 (% of total)",
+                   "Population ages 20-24, male (% of male population)",
+                   "Population ages 25-29, male (% of male population)",
+                   "Population ages 30-34, male (% of male population)",
+                   "External debt stocks (% of GNI)"
+)
+WDI_long <- subset(WDI_long, Indicator %in% indicator_vec)
+WDI_long <- subset(WDI_long, Country %in% country_vec)
+WDI_wide <- spread(WDI_long, Indicator, Value)
+#------------------------------
+# FoodSec_raw <- read.csv("Food_Security_Data_E_All_Data.csv")
+# FoodSec_raw$Country.Code <- NULL
+# FoodSec_raw$Item.Code <- NULL
+# FoodSec_raw$Element.Code <-NULL
+# FoodSec_raw$Element <-NULL
+# FoodSec_raw$Unit <-NULL
+# FoodSec_raw$Item <- as.character(FoodSec_raw$Item)
+# FoodSec_raw$Country <- as.character(FoodSec_raw$Country)
+# u <- colnames(FoodSec_raw)
+# FoodSec_raw <- FoodSec_raw[, -grep("F", u)]
+# FoodSec_raw <- FoodSec_raw[,c(1:3,(2*c(2:(ncol(FoodSec_raw)/2 - 1))+1))]
+# FoodSec_raw$Y19891991 <- NULL
+# colnames(FoodSec_raw)[3:ncol(FoodSec_raw)] <- as.character(1992:2016)
+# item_vec <- c("Cereal import dependency ratio (%) (3-year average)",
+#               "Average dietary energy supply adequacy (%) (3-year average)",
+#               "Number of people undernourished (millions) (3-year average)",
+#               "Prevalence of food inadequacy (%) (3-year average)",
+#               "Depth of the food deficit (kcal/capita/day) (3-year average)")
+# 
+# u <- FoodSec_raw$Country
+# FoodSec_raw$Country[grep("United States of America", u)] <- "United States"
+# FoodSec_raw$Country[grep("Tanzania", u)] <- "Tanzania"
+# FoodSec <- subset(FoodSec_raw, Item %in% item_vec)
+# FoodSec <- subset(FoodSec, Country %in% country_vec)
+# FoodSec_long <- gather(FoodSec,Year,Value,`1992`:`2016`)
+# FoodSec_long$Year <- as.integer(FoodSec_long$Year)
+# FoodSec_wide <- spread(FoodSec_long, Item, Value)
+# #FoodSec_x <- rbind(FoodSec_raw, gdp)
+# #FoodSec_x <- subset(FoodSec_x, Year %in% c(2010:2016))
+#---------------------
+IE_raw <- read.csv("WIID3.4_19JAN2017New.csv", stringsAsFactors = F)
+IE_raw$na <- 0
+u <- IE_raw$Gini
+IE_raw$na[which(is.na(u) == T)] <- 1
+IE <- subset(IE_raw, na == 0)
+IE <- IE[,c("Country", "Year", "Gini", "D1","D2","D4","D5","D6","D9","D10", "Mean_usd")]
+IE <- IE %>% group_by(Country, Year) %>% summarise_each(funs(mean))
+IE <- subset(IE, Country %in% country_vec)
+IE <- subset(IE, Year %in% c(1992:2016))
+n_countries <- length(country_vec)
+dflist <- list()
+for(i in 1:n_countries)
+{
+  dflist[[i]] <- data.frame(Country = country_vec[i], Year = c(1992:2016))
+}
+df_allyrs <- do.call(rbind, dflist)
+IE <- merge(IE, df_allyrs, by = c("Country", "Year"), all.x=T, all.y=T)
+#---------------------
+#df <- merge(WDI_wide, FoodSec_wide, by = c("Country", "Year"))
+#df <- merge(df, IE, by = c("Country", "Year"))
+df <- merge(WDI_wide, IE, by = c("Country", "Year"))
+df$`Country-Year` <- paste(df$Country,df$Year)
+df$`l(GDP per capita (constant 2010 US$))` <- log(df$`GDP per capita (constant 2010 US$)`)
+```
+
+```{r, fig.align="center", echo=F}
+#Good Model!
+mod <- lm(Gini ~ `GDP per capita (constant 2010 US$)`
+          + `Total natural resources rents (% of GDP)`
+          + `Rural population (% of total population)`
+          + `School enrollment, tertiary (% gross)`
+          + `Research and development expenditure (% of GDP)`
+          + `Population ages 20-24, male (% of male population)`,
+          df)
+m_table <- tidy(mod)
+kable(m_table)
+#----------
+resid <- residuals(mod)
+yhat <- fitted(mod)
+df_subset <- subset(df, `GDP per capita (constant 2010 US$)` %in% mod$model$`GDP per capita (constant 2010 US$)`)
+ind <- which(colnames(df_subset) =="GDP per capita (constant 2010 US$)")
+colnames(df_subset)[ind] <- "join_var"
+ind <- which(colnames(mod$model) =="GDP per capita (constant 2010 US$)")
+colnames(mod$model)[ind] <- "join_var"
+dfmod <- data.frame(yhat = yhat, errors = resid, Gini = mod$model$Gini, join_var = mod$model$join_var)
+df_mod <- join_all(list(dfmod, df_subset), by = c("Gini", "join_var"))
+df_plot <- df_mod[, c("yhat", "errors", "Gini", "Country", "Year", "Country-Year")]
+#---------------------
+gg <- ggplot(df_plot, aes(x = yhat, y = Gini, color = Country, group = Country)) + geom_point()
+gg <- gg + labs(title = "Figure 2: The data fits")
+gg <- gg + xlab("Model") + ylab("Gini") + theme_economist() 
+gg
+
+# gg <- ggplot(df_plot, aes(x = yhat, y = errors, color = Country, group = Country)) + geom_point()
+# gg <- gg #+ geom_text(aes(label = `Country-Year`)) + theme(legend.position="none")
+# gg <- gg + xlab("Modeled Gini (yhat)") + ylab("True Gini - Modeled Gini (errors)")
+# gg
+
+```
