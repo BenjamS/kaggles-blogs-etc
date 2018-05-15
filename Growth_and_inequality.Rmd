@@ -1,7 +1,7 @@
 ---
 title: "Inequality = fragile growth"
 author: "Candelario"
-date: "February 4, 2018"
+date: "May 14, 2018"
 output: html_document
 ---
 
@@ -20,23 +20,17 @@ library(broom)
 library(knitr)
 ```
 
-When I was 24 years old, the 1990s had just ended, and I was in Botswana on a USAID project. An Australian consultant said to me, "It's ok to be a Marxist when you're in your twenties. In fact, if you're not a Marxist when you're in your twenties then you haven't got a heart. However, if you're still a Marxist when you're forty, then you haven't got a brain."
+When I was 24 years old, the 1990s had just ended, and I was in Botswana on a USAID project. An Australian economist said to me, "It's ok to be a Marxist when you're in your twenties. In fact, if you're not a Marxist when you're in your twenties then you haven't got a heart. However, if you're still a Marxist when you're forty, then you haven't got a brain."
 
 It was a turbulent time, mentally, for me. My background was in the liberal arts, but I wanted to do much more than sit around and be jaded and world-weary, or to conjure up emotional, self-indulgent notions of changing the world which go nowhere (which is mostly what, it turns out, a liberal arts degree is good for).
 
-It was June, 2001, to be more specific. The infamous terrorist attacks that would come three months later have so transfigured all subsequent remembering that it is very difficult, nowadays, to put oneself in a June, 2001 frame of mind. But let's try. Economic neo-liberalism was at the apex of its momentum. Our fearless leaders at the World Bank and IMF, intoxicated with the idea that "capitalism" had recently triumphed over "communism", commanded developing nations to slash their social safety nets and throw open their markets, or else. There was talk of the "end of history". If you had anything to do with development, you could hardly go anywhere without someone shoving the "Lexus and the Olive Tree" or Landes' "The Wealth and Poverty of Nations" in your face.
+It was June, 2001, to be more specific. The infamous terrorist attacks that would come three months later have so transfigured all subsequent remembering that it is very difficult, nowadays, to put oneself in a June 2001 frame of mind. But let's try. Economic neo-liberalism was at the apex of its momentum. Our fearless leaders at the World Bank and IMF, intoxicated with the idea that "capitalism" had recently triumphed over "communism", commanded developing nations to slash their social safety nets and throw open their markets, or else. There was talk of the "end of history". You could hardly go anywhere without someone shoving the "Lexus and the Olive Tree" or "The Wealth and Poverty of Nations" in your face.
 
-And so this was the turbulent thing. With a heart full of Mayakovsky, Marcuse, Foucault, etc., I set out to comprehend Friedman, Greenspan, Fukuyama, etc.--you know, the curators of the predominant neoliberal narrative. I felt that the explanatory frameworks set forth by the Marcuses and Foucaults (and such) anticipated and described the Fukuyamas and Greenspans of the world with startling exactitude; while the proponents of neoliberal policy, on the other hand, demolished entire armies of straw Marcuses and Foucaults with sickening, animal farm arogance--which they themselves (and their New York Times "critics") often mistook for analytical prowess--and oftentimes without ever having read the works of their targets.
+And so this was the turbulent thing. With a heart full of Kafka, Mayakovsky, Marcuse, and Foucault, I set out to comprehend Friedman, Greenspan, Milton, and Fukuyama. This was intellectually painful because the Marcuses and Foucaults (and such) of the world anticipated and described the Fukuyamas and Greenspans with startling exactitude; while the curators of neoliberal policy, on the other hand, demolished armies of straw Marcuses and Foucaults with sickening, animal farm arogance--which they themselves (and their New York Times "critics") then mistook for analytical prowess--oftentimes without ever having read the works of their targets.
 
-Bear with me as I vent some pent up frustration.
+The rest is (a very sad) history. Marx said that history always repeats itself--first as tragedy, second as farse. But it seems to me there is something about this latest incarnation of well-worn historical cycles that is both tragic and farsical--and not in a hip, Samuel Beckett way, nor in any other remotely redeeming way.
 
-The worst of it is not the intellectual affrontery. The idea that you just ensure that "job creating" elites are absolutely empowered, labor forces elastic, and that wealth would trickle down... in Colombia this translated into record numbers of human rights abuses.
-
-The rest is (a very sad) history. Marx said that history always repeats itself--first as tragedy, second as farse. But it seems to me there is something about this latest incarnation of well-worn historical cycles that is both tragic and farsical--and not in a hip, Samuel Beckett way, or any other remotely redeeming way.
-
-
-
-Anyways, you don't hear much from the trickle down people these days. You'd hardly know they ruled the world a short time ago. Oh and hey, you wanna know two books that no one is shoving in my face anymore? (See figure 1.)
+Anyways, you don't hear much from the trickle down people these days. You'd hardly know they ruled the world a short time ago. Oh and hey, you wanna know two books that no one is shoving in my face anymore? (Figure 1)
 
 ```{r, fig.align="center", echo=F,message=FALSE,}
 df_lob <- read.csv("LexusOliveTree.csv", stringsAsFactors = F)
@@ -51,9 +45,9 @@ df$Date <- as.yearmon(df$Date)
 ggplot(df, aes(x = Date, y = `Google Trend`, group = Book, color = Book)) + geom_line() + labs(title = "Figure 1: Two books no one is shoving in my face anymore") + theme_economist() + theme(axis.title.x=element_blank(), legend.title=element_blank())
 ```
 
-Finally, terms like "pro-poor" and "financial inclusion" are moving to the center of mainstream development discourse. Most importantly, I think, are a crop of recent (IMF-funded!) studies that put to rest the horseshit about a rising tide lifting all boats. As it turns out, there   There is enough data out there that you can check for yourself. Using the World Bank's World Development Indicators (WDI) and the United Nations University Income Inequality Database (WIID 3.4), ... I fished around for a model ... there are a lot of amazing variables in the WDI data. Unfortunately, only a small fraction of these have reasonably complete data.     Growth does not equal prosperity for all.  This is mostly thanks to data  Google () for details, but I had some fun looking at the data myself.
+Finally, terms like "pro-poor" and "financial inclusion" are moving to the center of mainstream development discourse. Most importantly, I think, are a crop of recent (IMF-funded!) studies that put to rest the horseshit about a "rising tide lifting all boats". On the contrary, the data show that growth has no impact, positive or negative, on income inequality. Moreover, the findings show that capital-intensive growth spells which exclude large sections of society tend to be fragile and short-lived, whereas labor-intensive growth spells with large participation from society are relatively robust and long-lived (Berg & Ostry, 2011; Berg, Ostry, & Zettelmeyer, 2012; Dabla-norris & Kochhar, 2015; Ostry, Berg, & Tsangarides, 2014).
 
-
+There is enough data lying around these days that you can readily check this for yourself. Using the World Bank's World Development Indicators (WDI) and the United Nations University Income Inequality Database (WIID 3.4), I estimated income inequality (as measured by the Gini coefficient) as a function of growth, rural population size, education and age of population, R&D expenditures, and natural resource rents (see table and Figure 2 below). The model is in logs, so the coefficients reported below can be interpreted as percentage impacts on inequality. 
 
 ```{r, echo=F, message=FALSE,}
 country_vec <- c("Tanzania", "India", "China", "United States", "Malawi", "Argentina", 
@@ -158,6 +152,8 @@ df$`Country-Year` <- paste(df$Country,df$Year)
 df$`l(GDP per capita (constant 2010 US$))` <- log(df$`GDP per capita (constant 2010 US$)`)
 ```
 
+The coefficient on the growth variable (GDP) is effectively zero, confirming the recent work metioned above--growth does not "lift all boats", nor "trickle down", nor have any impact whatsoever on income inequality. Moreover, note the coefficient of 0.70 on the natural resource rents variable. This is much worse than a coefficient of zero. This means there is a 70% correlation between income inequality and socially exclusive, capital-intensive forms of growth, further confirming the IMF-funded studies.
+
 ```{r, fig.align="center", echo=F}
 #Good Model!
 mod <- lm(Gini ~ `GDP per capita (constant 2010 US$)`
@@ -170,6 +166,11 @@ mod <- lm(Gini ~ `GDP per capita (constant 2010 US$)`
 m_table <- tidy(mod)
 kable(m_table)
 #----------
+```
+
+As for the control variables, the coeffient on the education variable has the sign we would expect, indicating an inverse relation between a country's level of income inequality and its level of education. The coefficient on the population youth variable suggests an inverse relation between inequality and population age; which we might expect considering that young populations are often symptomatic of broken or non-existent healthcare systems, which are one of the more obvious hallmarks of deeply dysfunctional, impoverished nations. The coefficent on the R&D variable indicates a substantially inverse relation between R&D and inequality. All of these are strong arguments in favor of investment in education, science, and healthcare. 
+
+```{r, fig.align="center", echo=F}
 resid <- residuals(mod)
 yhat <- fitted(mod)
 df_subset <- subset(df, `GDP per capita (constant 2010 US$)` %in% mod$model$`GDP per capita (constant 2010 US$)`)
@@ -192,3 +193,17 @@ gg
 # gg
 
 ```
+
+Lastly, I'm not exactly sure what to make of the coefficient of -0.38 on the rural population size variable. In my experience, large rural populations are usually associated with highly unequal societies in Africa. However, considering that agricultural/food systems are naturally labor-intensive sectors with high participation from the lowest centiles of the income distribution, the rural population size variable may be acting as a proxy measure of labor-intensive, socially inclusive growth, just as I take the natural resource rents variable to be a measure of capital-intensive, socially exclusive growth. In this interpretation, the coefficient again confirms the recent IMF-funded studies, indicating 38% lower inequality per 1% increase in labor-intensive, socially-inclusive growth.
+
+
+
+References
+
+Ostry, J. D., Berg, A., & Tsangarides, C. G. (2014). Redistribution, Inequality, and Growth. IMF Staff Discussion Note, 1–30. https://doi.org/10.5089/9781484352076.006
+
+Dabla-norris, E., & Kochhar, K. (2015). Causes and Consequences of Income Inequality : A Global Perspective. IMF Staff Discussion Note. https://doi.org/DOI:
+
+Berg, A., & Ostry, J. (2011). Inequality and Unsustainable Growth: Two Sides of the Same Coin? International Monetary Fund Staff Discussion Note, 1–21. https://doi.org/10.1017/CBO9781107415324.004
+
+Berg, A., Ostry, J. D., & Zettelmeyer, J. (2012). What makes growth sustained? Journal of Development Economics, 98(2), 149–166. https://doi.org/10.1016/j.jdeveco.2011.08.002
