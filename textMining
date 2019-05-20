@@ -1,0 +1,2541 @@
+#setwd("D:/OneDrive - CGIAR/Documents")
+options(warn = -1); options(scipen = 999)
+# pkgs <- c("car", "plyr", "caret", "MLmetrics", 
+#           "reshape2", "ggplot2", "gridExtra", "scales",
+#           "data.table", "wordcloud", "SnowballC", "RWeka",
+#           "gridExtra", "tm", "MLmetrics", "RColorBrewer",
+#           "gridBase", "grid", "dplyr","tidyr", "FactoMineR", 
+#           "magrittr", "factoextra", "corrplot", "tidytext") 
+# if (!require(wordVectors)) {
+#   if (!(require(devtools))) {
+#     install.packages("devtools")
+#   }
+#   devtools::install_github("bmschmidt/wordVectors")
+# }
+
+pkgs <- c("tidyverse", "tidytext", "FactoMineR", "factoextra", "readr", "tm")
+
+for (pkg in pkgs) {
+  #if (! (pkg %in% rownames(installed.packages()))){install.packages(pkg)}
+  library(pkg, character.only = TRUE)
+}
+rm(pkgs, pkg)
+gc()
+
+#-----------------------------------------
+dir <- "CityofLA/Job Bulletins/"
+file_names <- list.files(dir)
+# file_names_for_labeling  <- str_replace_all(string = file_names, pattern = "\\s\\([:digit:]\\)\\.txt", replacement = "")
+# titles_and_codes <- str_extract_all(string = file_names_for_labeling,
+#                           pattern = "(tins/)(311)?([:print:])+([:digit:]+[:space:]){1}") %>% 
+  # str_squish() %>% 
+  # str_replace_all(string = ., pattern = "tins/", replacement = "") %>% 
+  # str_replace_all(string = ., pattern = "_ ", replacement = "_") %>%
+  # str_replace_all(string = ., pattern = " ", replacement = "_")
+
+
+#--
+# ind_check <- which(titles_and_codes == "character(0)")
+# file_names[ind_check]
+# str_extract_all(string = file_names[ind_check[2]],
+#                 pattern = "(tins/)(311)?([:print:])+([:digit:]+[:space:]){1}")
+# 
+# xx <- gsub(".txt", "", file_names[2])
+# xx <- str_split(xx, " ")
+# nums <- parse_number(unlist(xx))
+# nums <- nums[which(!is.na(nums))]
+# class(nums)
+
+
+
+#file_names <- paste0(dir, file_names)
+#file_contents <- map(this_file, readLines)
+
+# this_file_name <- file_names[2]
+# txt <- readLines(this_file_name)
+# txt <- as.character(unlist(txt))
+# ind_rm <- which(txt == "")
+# txt <- txt[-ind_rm]
+# #--
+# bulletin_structure <- function(file_name){
+#   txt <- readLines(file_name)
+#   txt <- as.character(unlist(txt))
+#   txt <- str_trim(txt)
+#   ind_rm <- which(txt == "")
+#   txt <- txt[-ind_rm]
+#   section_headings <- txt[grep("^[A-Z :/\t]+$", txt)]
+#   section_headings <- str_trim(section_headings)
+#   ind_examCaveat1 <- grep("THIS EXAMINATION IS TO BE GIVEN", section_headings)
+#   if(length(ind_examCaveat1) != 0){
+#     ind_examCaveat2 <- grep("DEPARTMENTAL PROMOTIONAL|DEPARMENTAL PROMOTIONAL|OPEN COMPETITIVE BASIS", section_headings)
+#     str_examCaveat1 <- section_headings[ind_examCaveat1]
+#     str_examCaveat2 <- section_headings[ind_examCaveat2]
+#     str_examCaveat <- paste(str_examCaveat1, str_examCaveat2)
+#     section_headings[ind_examCaveat1] <- str_examCaveat
+#     section_headings <- section_headings[-ind_examCaveat2]
+#   }
+#   n_headings <- length(section_headings)
+#   #return(section_headings)
+#   #return(n_headings)
+#   # has_reqSection <- ifelse(length(grep("REQUIREMENT", section_headings)) != 0, 1, 0)
+#   # return(has_reqSection)
+#  #  ind_Reqs <- grep("REQUIREMENT", section_headings)
+#  #  ind_procNotes <- grep("PROCESS NOTE", section_headings)
+#  #  if(length(ind_procNotes) != 0){
+#  #    dif <- ind_procNotes - ind_Reqs
+#  #  }else{
+#  #    dif <- NA
+#  #  }
+#  # return(dif)
+#   out <- ifelse("DUTIES" %in% section_headings, 1, 0)
+#   return(out)
+# }
+# xx <- map(file_names, bulletin_structure)
+# xx <- unlist(xx)
+# # class(xx)
+# # hist(xx)
+# ind <- which(xx == 0)
+# file_names[ind]
+# txt <- readLines(file_names[ind[1]])
+# txt <- as.character(unlist(txt))
+# ind_rm <- c(which(txt == ""), which(txt == "   "))
+# txt <- txt[-ind_rm]
+# section_headings <- txt[grep("^[A-Z :/\t]+$", txt)]
+# section_headings <- str_trim(section_headings)
+# ind_examCaveat1 <- grep("THIS EXAMINATION IS TO BE GIVEN", section_headings)
+# if(length(ind_examCaveat1 != 0)){
+#   ind_examCaveat2 <- grep("DEPARTMENTAL PROMOTIONAL|DEPARMENTAL PROMOTIONAL|OPEN COMPETITIVE BASIS", section_headings)
+#   str_examCaveat1 <- section_headings[ind_examCaveat1]
+#   str_examCaveat2 <- section_headings[ind_examCaveat2]
+#   str_examCaveat <- paste(str_examCaveat1, str_examCaveat2)
+#   section_headings[ind_examCaveat1] <- str_examCaveat
+#   section_headings <- section_headings[-ind_examCaveat2]
+# }
+# section_headings
+#------------------------------------------------------
+#file_name <- "CityofLA/Job Bulletins/Vocational Worker  DEPARTMENT OF PUBLIC WORKS.txt"
+#"CityofLA/Job Bulletins/SENIOR REAL ESTATE OFFICER 1961 0413018 (2).txt"  "ANNUALSALARY"
+#"CityofLA/Job Bulletins/Vocational Worker  DEPARTMENT OF PUBLIC WORKS.txt"
+file_names <- list.files(dir)
+file_name <- file_names[1]
+#file_name <- "EMERGENCY MEDICAL SERVICES EDUCATOR  2322 110615 REV 112515.txt"
+#file_name <- "PORT PILOT 5151 081817 REV 090717.txt"
+#file_name <- "AIRPORT POLICE SPECIALIST 3236 063017 (2).txt" # Salary pending
+#file_name <- "SENIOR PARK SERVICES ATTENDANT 2422 102717.txt"
+#file_name <- "EQUIPMENT REPAIR SUPERVISOR 3746 012717.txt"
+#file_name <- "AIRPORT POLICE SPECIALIST 3236 063017 (2).txt"
+#file_name <- "SENIOR BUILDING OPERATING ENGINEER 5925 011615 (1).txt"
+#file_name <- "CITY PLANNING ASSOCIATE 7941 110317.txt"
+parse_bulletin <- function(file_name, dir){
+  print(file_name)
+  txt <- readLines(paste0(dir, file_name))
+  txt <- as.character(unlist(txt))
+  txt <- str_trim(txt)
+  ind_rm <- which(txt == "")
+  txt <- txt[-ind_rm]
+  ind_openDate <- grep("Open Date", txt, ignore.case = T)
+  xx <- txt[ind_openDate[1]]
+  xx <- unlist(str_split(xx, " "))
+  ind <- grep("[0-9-]", xx)
+  str_openDate <- xx[ind]
+  #--
+  # Salary
+  ind_annSalary <- grep("ANNUAL SALARY|ANNUALSALARY", txt) + 1
+  str_annSalary <- txt[ind_annSalary]
+  #--
+  # Salary min and max (all ranges)
+  pay_ranges <- gsub("\\(.*\\)", "", str_annSalary)
+  pay_ranges <- str_trim(pay_ranges)
+  pay_ranges <- unlist(str_split(pay_ranges, " "))
+#  pay_ranges <- gsub("\\(.*\\)", "", pay_ranges) # EXHIBIT PREPARATOR
+  ind_rm <- which(pay_ranges == "")
+  if(length(ind_rm) != 0){pay_ranges <- pay_ranges[-ind_rm]}
+  pay_ranges <- pay_ranges[grep("[0-9]", pay_ranges)]
+  pay_ranges <- paste(pay_ranges, collapse = "") #"EQUIPMENT REPAIR SUPERVISOR 3746 012717.txt"
+  pay_ranges <- unlist(str_split(pay_ranges, "\\$"))
+  pay_ranges <- pay_ranges[-which(pay_ranges == "")]
+  pay_ranges <- as.numeric(gsub("[\\$, ;.\\*]", "", pay_ranges))
+  if(length(pay_ranges) > 0){
+    annSalary_min <- min(pay_ranges, na.rm = T)
+    annSalary_max <- max(pay_ranges, na.rm = T)
+  }else{
+      annSalary_min <- NA
+      annSalary_max <- NA
+  }
+  #--
+  # Salary growth potential
+    if(length(pay_ranges) > 1){
+      n_pay_ranges <- length(pay_ranges) / 2
+      growth_potential <- diff(pay_ranges)[seq(1, 2 * n_pay_ranges - 1, 2)]
+      growth_potential_all <- paste(as.character(growth_potential), collapse = ", ")
+      growth_potential_mean <- mean(growth_potential)
+    }
+    if(length(pay_ranges) == 1){ # flat-rated case
+      n_pay_ranges <- 0
+      growth_potential <- "0"
+      growth_potential_all <- "0"
+      growth_potential_mean <- 0
+    }
+    if(length(pay_ranges) == 0){ # "AIRPORT POLICE SPECIALIST 3236 063017 (2).txt"
+      n_pay_ranges <- NA
+      growth_potential <- "Not reported"
+      growth_potential_all <- "Not reported"
+      growth_potential_mean <- NA
+    }
+
+  #--
+  ind_headings <- grep("^[A-Z :/,\t]+$", txt)
+  section_headings <- txt[ind_headings]
+  section_headings <- str_trim(section_headings)
+  #--
+  ind_Duties_start <- grep("DUTIES", txt) + 1
+  if(length(ind_Duties_start) != 0){
+    str_Duties_end <- section_headings[grep("DUTIES", section_headings) + 1]
+    ind_Duties_end <- grep(str_Duties_end, txt) - 1
+    ind_rm <- which(ind_Duties_end < ind_Duties_start)
+    if(length(ind_rm) != 0){
+      ind_Duties_end <- ind_Duties_end[-ind_rm]
+    }
+    ind_Duties_end <- ind_Duties_end[1]
+    str_Duties <- txt[ind_Duties_start:ind_Duties_end]
+    str_Duties <- paste(str_Duties, collapse = " ")
+  }else{
+    str_Duties <- ""
+  }
+  #--
+  ind_reqMinquals_start <- grep("REQUIREMENT", txt) + 1
+  str_reqMinquals_end <- section_headings[grep("REQUIREMENT", section_headings) + 1]
+  ind_reqMinquals_end <- grep(str_reqMinquals_end, txt) - 1
+  ind_rm <- which(ind_reqMinquals_end < ind_reqMinquals_start)
+  if(length(ind_rm) != 0){
+    ind_reqMinquals_end <- ind_reqMinquals_end[-ind_rm]
+  }
+  ind_reqMinquals_end <- ind_reqMinquals_end[1]
+  str_reqMinquals <- txt[ind_reqMinquals_start:ind_reqMinquals_end]
+  str_reqMinquals <- paste(str_reqMinquals, collapse = " ")
+  #--
+  # grep("college|university", str_reqMinquals)
+  # grep("degree in", str_reqMinquals)
+  df_out <- data.frame(File_Name = file_name, Open_Date = str_openDate,
+                       Duties = str_Duties, Requirements = str_reqMinquals,
+                       Annual_Salary = str_annSalary,
+                       Annual_Salary_Min = annSalary_min,
+                       Annual_Salary_Max = annSalary_max,
+                       Number_Pay_Ranges = n_pay_ranges,
+                       Growth_Potential_all_ranges = growth_potential_all,
+                       Growth_Potential_AVG = growth_potential_mean)
+  return(df_out)
+}
+special_case <- "Vocational Worker  DEPARTMENT OF PUBLIC WORKS.txt"
+file_names <- list.files(dir)
+ind_rm <- which(file_names == special_case)
+file_names <- file_names[-ind_rm]
+list_df <- map(file_names, parse_bulletin, dir)
+df <- do.call(rbind, list_df)
+u <- df$Growth_Potential_AVG
+length(which(u < 0))
+View(df[which(u < 0), ])
+View(df[which(u > 10^5), ])
+hist(df$Growth_Potential_AVG[u >= 0 & u < 10^5])
+
+
+df$File_Name <- as.character(df$File_Name)
+df$Open_Date <- as.character(df$Open_Date)
+df$Annual_Salary <- as.character(df$Annual_Salary)
+df$Duties <- as.character(df$Duties)
+df$Requirements <- as.character(df$Requirements)
+#--Special case
+
+if(file_name %in% special_case){
+  df_out <- data.frame(File_Name = special_case, Open_Date = NA,
+                       Duties = NA, Requirements = NA,
+                       Annual_Salary = NA,
+                       Annual_Salary_Min = NA,
+                       Annual_Salary_Max = NA,
+                       Number_Pay_Ranges = NA,
+                       Growth_Potential_all_ranges = NA,
+                       Growth_Potential_AVG = NA)
+  return(df_out)
+  break()
+}
+
+ind_special <- which(df$File_Name == special_case)
+df$Open_Date[ind_special] <- "03-10-15"
+df$Annual_Salary[ind_special] <- NA
+txt <- readLines(paste0(dir, special_case))
+txt <- as.character(unlist(txt))
+txt <- str_trim(txt)
+ind_rm <- which(txt == "")
+txt <- txt[-ind_rm]
+#--
+ind_headings <- grep("^[A-Z :/,\t]+$", txt)
+section_headings <- txt[ind_headings]
+section_headings <- str_trim(section_headings)
+#--
+ind_Duties_start <- grep("DUTIES", txt) + 1
+str_Duties_end <- section_headings[grep("DUTIES", section_headings) + 1]
+ind_Duties_end <- grep(str_Duties_end, txt) - 1
+str_Duties <- txt[ind_Duties_start:ind_Duties_end]
+str_Duties <- paste(str_Duties, collapse = " ")
+df$Duties[ind_special] <- str_Duties
+#--
+txt <- txt[-c(23, 24)]
+str_reqMinquals <- txt[15:26]
+str_reqMinquals <- paste(str_reqMinquals, collapse = " ")
+df$Requirements[ind_special] <- str_reqMinquals
+#--
+ind_naDuties <- which(is.na(df$Duties))
+df$File_Name[ind_naDuties]
+df$Open_Date[ind_naDuties]
+df$Annual_Salary[ind_naDuties]
+df$Duties[ind_naDuties]
+df$Requirements[ind_naDuties]
+which(is.na(df$Requirements))
+#--
+length(file_names)
+nrow(df)
+#which(file_names == special_cases)
+
+#grep("EMERGENCY MEDICAL SERVICES EDUCATOR", file_names)
+
+df$`Duties and Requirements` <- paste(df$Duties, df$Requirements)
+
+processCorpus <- function (corpus)
+{
+  corpus <- tm_map(corpus, stripWhitespace)
+  corpus <- tm_map(corpus, content_transformer(tolower))
+  corpus <- tm_map(corpus, stemDocument, language="english")
+  corpus <- tm_map(corpus, removePunctuation, preserve_intra_word_dashes = TRUE)
+  corpus <- tm_map(corpus, removeWords, stopwords("english"))
+  corpus <- tm_map(corpus, function (x) {
+    gsub("\\s*(?<!\\B|-)\\d+(?!\\B|-)\\s*", "", x, perl = TRUE) })
+  corpus <- tm_map(corpus, stripWhitespace)
+  return (corpus)
+}
+corpus <- Corpus(VectorSource(df$`Duties and Requirements`))
+#summary(corpus)  #check what went in
+corpus <- processCorpus(corpus)
+dtm <- DocumentTermMatrix(corpus) 
+dtm <- removeSparseTerms(dtm, 0.9)
+df_dtm <- tidy(dtm)
+df_dtm <- df_dtm %>% spread(term, count)
+df_dtm[is.na(df_dtm)] <- 0
+df_dtm$document <- file_names
+cormat <- cor(as.matrix(df_dtm[, -1]))
+image(cormat)
+#--
+mat_dtm <- as.matrix(df_dtm[, -1])
+doc_labels <- gsub(".txt|[0-9()]", "", file_names)
+doc_labels <- str_trim(doc_labels)
+doc_labels <- str_trunc(doc_labels, 30, ellipsis = "")
+ind_dup <- which(duplicated(doc_labels))
+doc_labels[ind_dup] <- paste(doc_labels[ind_dup], "(dup)")
+ind_dup <- which(duplicated(doc_labels))
+doc_labels[ind_dup] <- paste(doc_labels[ind_dup], "(dup)")
+which(duplicated(doc_labels))
+row.names(mat_dtm) <- doc_labels
+res <- PCA(mat_dtm)
+#summary(res)
+fviz_pca_biplot(res)
+fviz_screeplot(res)
+
+#=============================================
+max_graph <- 12
+in_mat <- as.matrix(df_dtm[, -1])
+n_ts <- ncol(in_mat)
+
+e <- eigen(cormat)
+eig_vectors <- e$vectors
+lam_cor <- e$values
+lamcor_max <- max(lam_cor)
+N_t <- nrow(in_mat)
+N_c <- ncol(in_mat)
+Q <- N_t / N_c
+s_sq <- 1 - lamcor_max / N_c
+#s_sq <- 1
+lamrand_max <- s_sq * (1 + 1 / Q + 2 / sqrt(Q))
+lamrand_min <- s_sq * (1 + 1 / Q - 2 / sqrt(Q))
+lam <- seq(lamrand_min, lamrand_max, 0.001)
+dens_rand <- Q / (2 * pi * s_sq) * sqrt((lamrand_max - lam) * (lam - lamrand_min)) / lam
+df_e <- data.frame(values = lam_cor)
+#--
+gg <- ggplot() +
+  geom_density(data = df_e, aes(x = values, color = "Correlation Matrix")) +
+  #geom_histogram(data = df_e, aes(x = values), alpha = 0.2) +
+  geom_line(data = data.frame(x = lam, y = dens_rand), aes(x = x, y = y, color = "Random matrix")) +
+  coord_cartesian(xlim = c(0, ceiling(lamcor_max))) +
+  scale_colour_manual(name = "Eigenvalue density", 
+                      values = c(`Correlation Matrix` = "blue", `Random matrix` = "orange"))
+gg
+#-----------------------------
+# How many collective modes?
+ind_deviating_from_noise <- which(lam_cor > lamrand_max)
+collModes <- as.matrix(eig_vectors[, ind_deviating_from_noise])
+
+noiseModes <- as.matrix(eig_vectors[, -ind_deviating_from_noise])
+n_collModes <- ncol(collModes)
+#-----------------------------
+# Set sign of eigenvectors such that they
+# best conform to the input time series
+Modes <- in_mat %*% collModes
+ts_avg <- in_mat %*% rep(1, n_ts) * 1 / n_ts
+for(i in 1:n_collModes){
+  sse <- sum((Modes[, i] - ts_avg)^2)
+  sse_neg <- sum((-Modes[, i] - ts_avg)^2)
+  sse_vec <- c(sse, sse_neg)
+  if(which(sse_vec == min(sse_vec)) == 2){
+    collModes[, i] <- -collModes[, i]
+  }
+}
+#-----------------------------
+n_collModes_really <- n_collModes
+n_collModes_to_graph <- n_collModes
+collModes_really <- collModes
+print(paste("Number of collective modes: ", n_collModes))
+if(ncol(collModes) > max_graph){
+  collModes <- collModes[, 1:max_graph]
+  n_collModes_to_graph <- max_graph
+}
+#-----------------------------
+# Contributions of items to each mode
+df_plot <- as.data.frame(collModes)
+gathercols <- colnames(df_plot)
+df_plot$Word <- colnames(in_mat)
+df_plot <- df_plot %>% gather_("Mode", "Contribution", gathercols)
+gg <- ggplot(df_plot, aes(x = Word, y = Contribution))
+gg <- gg + geom_bar(stat = "identity", position = "dodge")
+#gg <- gg + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+gg <- gg +  facet_wrap(~ Mode, ncol = 3)
+gg <- gg + theme(axis.text.x = element_blank(),
+                 axis.title.x = element_blank())
+gg
+#-
+# df_contrib <- data.frame(ts_id = col_order, Contribution)
+# df_contrib <- cbind(df_contrib, df_group[, c(2:ncol(df_group))])
+# mode_id <- c(1:n_collModes)
+# colnames(df_contrib)[2:(n_collModes + 1)] <- mode_id
+# gathercols <- as.character(mode_id)
+# df_contrib <- gather_(df_contrib, "Mode", "Contribution", gathercols)
+# #-----------------------------
+# if(is.null(df_group) == F){
+#   n_group_types <- ncol(df_group) - 1
+#   group_types <- colnames(df_group)[2:(n_group_types + 1)]
+#   ind_group_types <- 2:(n_group_types + 1)
+#   df_plot <- df_contrib
+#   #colnames(df_plot)[ind_group_types] <- group_types
+#   for(i in 1:n_group_types){
+#     ind_i <- i + 1
+#     this_group_label <- colnames(df_group)[ind_i]
+#     #df_plot <- df_plot[order(df_plot[, ind_group_types[i]]), ]
+#     group_label <- paste0("`", this_group_label, "`")
+#     #---
+#     if(AggregateContributions == F){
+#       #-----------------------
+#       xx <- df_plot[, ind_group_types[i]]
+#       df_plot$ts_id <- factor(df_plot$ts_id, levels = unique(df_plot$ts_id[order(xx)]))
+#       gg <- ggplot(df_plot, aes_string(x = "ts_id", y = "Contribution", fill = group_label)) +
+#         geom_bar(stat = "identity", position = "dodge") +
+#         #theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+#         facet_wrap(~ Mode, nrow = round(n_collModes / 2))
+#       if(n_ts <= 50){
+#         gg <- gg + theme(axis.text.x = element_text(angle = 60, hjust = 1))
+#       }else{
+#         gg <- gg + theme(axis.text.x = element_blank(),
+#                          axis.title.x = element_blank())
+#       }
+#       print(gg)
+#       #-----------------------
+#     }else{
+#       #-----------------------
+#       N_in_group <- c()
+#       Pvec_list <- list()
+#       these_groups <- unique(df_group[, ind_i])
+#       n_groups <- length(these_groups)
+#       for(j in 1:n_groups){
+#         this_group <- these_groups[j]
+#         Pvec <- rep(0, n_ts)
+#         ind_this_group <- which(df_group[, ind_i] == this_group)
+#         ts_in_group <- df_group[ind_this_group, 1]
+#         n_in_group <- length(ts_in_group)
+#         Pvec[ind_this_group] <- 1 / n_in_group
+#         Pvec_list[[j]] <- Pvec
+#         N_in_group[j] <- n_in_group
+#       }
+#       Pmat <- as.matrix(do.call(cbind, Pvec_list))
+#       #--------------------------
+#       mat_groupContrib <- t(Pmat) %*% Contribution
+#       #--------------------------
+#       df_groupContrib <- as.data.frame(mat_groupContrib)
+#       colnames(df_groupContrib) <- c(1:n_collModes)
+#       df_groupContrib$Group <- these_groups
+#       gathercols <- colnames(df_groupContrib)[1:n_collModes]
+#       df_plot <- gather_(df_groupContrib, "Mode", "Contribution", gathercols)
+#       if(n_collModes == 1){
+#         df_plot <- df_groupContrib
+#         colnames(df_plot)[1] <- "Value"
+#         df_plot$Mode <- 1
+#       }
+#       gg <- ggplot(df_plot, aes(x = Group, y = Contribution)) +
+#         geom_bar(stat = "identity") +
+#         facet_wrap(~ Mode, nrow = floor(n_collModes / 2)) +
+#         theme(axis.text.x = element_text(angle = 60, hjust = 1))
+#       print(gg)
+#       #-----------------------
+#     }
+#   }
+#   
+# }else{
+#   #-----------------------
+#   df_plot <- df_contrib
+#   gg <- ggplot(df_plot, aes_string(x = "ts_id", y = "Contribution")) +
+#     geom_bar(stat = "identity", position = "dodge") +
+#     #theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+#     facet_wrap(~ Mode, nrow = round(n_collModes / 2))
+#   if(n_ts <= 50){
+#     gg <- gg + theme(axis.text.x = element_text(angle = 60, hjust = 1))
+#   }else{
+#     gg <- gg + theme(axis.text.x = element_blank(),
+#                      axis.title.x = element_blank())
+#   }
+#   print(gg)
+#   #-----------------------
+#   
+# }
+# #-----------------------------
+# # Main contributors to each mode
+# select_main_contributors <- function(colvec, col_order, p_thresh){
+#   abs_colvec <- abs(colvec)
+#   q <- quantile(abs_colvec, p = p_thresh)
+#   ind_main <- which(abs_colvec >= q)
+#   top_contrib_absval <- sort(abs_colvec[ind_main], decreasing = T)
+#   ind_match <- match(top_contrib_absval, abs_colvec)
+#   top_contrib_name <- col_order[ind_match]
+#   top_contrib_val <- colvec[ind_match]
+#   df_out <- data.frame(Top_contributor = top_contrib_name, Eigvec_value = top_contrib_val)
+#   return(df_out)
+# }
+# p_thresh <- .90
+# mainContrib_list <- apply(collModes[, 2:ncol(collModes)], 2,
+#                           function(x) select_main_contributors(x, col_order, p_thresh))
+# for(m in 1:(n_collModes - 1)){mainContrib_list[[m]]$Mode <- m + 1}
+# df_mainContributors <- do.call(rbind, mainContrib_list)
+# print("Main contributors to each non-leading mode:")
+# print(df_mainContributors)
+# #--
+# df_plot <- df_mainContributors
+# df_plot$Mode <- as.factor(df_plot$Mode)
+# df_plot$Top_contributor <- factor(df_plot$Top_contributor, levels = unique(df_plot$Top_contributor))
+# gg <- ggplot(df_plot, aes(x = Top_contributor, y = Eigvec_value, fill = Mode)) +
+#   geom_bar(aes(fill = Mode), position = "dodge", stat = "identity") +
+#   theme(axis.text.x = element_text(angle = 60, hjust = 1))
+# print(gg)
+# #-----------------------------
+
+
+#-------------------------------------------
+#-------------------------------------------
+#-------------------------------------------
+
+library(rword2vec)
+#model=word2vec(train_file = "corp.txt",output_file = "vec.bin",binary=1)
+dist=distance(file_name = "vec.bin",search_word = "engin",num = 20)
+word_analogy(file_name = "vec.bin",search_words = "engin senior environ",num = 20)
+word2phrase(train_file = "corp.txt",output_file = "vec.txt")
+vocab_count(file_name="corp.txt",vocab_file="vocab.txt",min_count = 20)
+d=read.table("vocab.txt")
+head(d)
+bin_to_txt("vec.bin","vector.txt")
+df_wv=as.data.frame(read.table("vector.txt",skip=1))
+dim(df_wv)
+cnames <- df_wv$V1
+cnames
+mat_wv <- t(as.matrix(df_wv[, -1]))
+#--
+res <- PCA(mat_wv)
+fviz_screeplot(res)
+fviz_pca_biplot(res)
+#--
+cormat <- cor(mat_wv)
+dim(cormat)
+
+max_graph <- 12
+in_mat <- mat_wv
+colnames(in_mat)
+n_ts <- ncol(in_mat)
+
+e <- eigen(cormat)
+eig_vectors <- e$vectors
+lam_cor <- e$values
+lamcor_max <- max(lam_cor)
+N_t <- nrow(in_mat)
+N_c <- ncol(in_mat)
+Q <- N_t / N_c
+s_sq <- 1 - lamcor_max / N_c
+#s_sq <- 1
+lamrand_max <- s_sq * (1 + 1 / Q + 2 / sqrt(Q))
+lamrand_min <- s_sq * (1 + 1 / Q - 2 / sqrt(Q))
+lam <- seq(lamrand_min, lamrand_max, 0.001)
+dens_rand <- Q / (2 * pi * s_sq) * sqrt((lamrand_max - lam) * (lam - lamrand_min)) / lam
+df_e <- data.frame(values = lam_cor)
+#--
+gg <- ggplot() +
+  geom_density(data = df_e, aes(x = values, color = "Correlation Matrix")) +
+  #geom_histogram(data = df_e, aes(x = values), alpha = 0.2) +
+  geom_line(data = data.frame(x = lam, y = dens_rand), aes(x = x, y = y, color = "Random matrix")) +
+  coord_cartesian(xlim = c(0, ceiling(lamcor_max))) +
+  scale_colour_manual(name = "Eigenvalue density", 
+                      values = c(`Correlation Matrix` = "blue", `Random matrix` = "orange"))
+gg
+#-----------------------------
+# How many collective modes?
+ind_deviating_from_noise <- which(lam_cor > lamrand_max)
+collModes <- as.matrix(eig_vectors[, ind_deviating_from_noise])
+
+noiseModes <- as.matrix(eig_vectors[, -ind_deviating_from_noise])
+n_collModes <- ncol(collModes)
+#-----------------------------
+# Set sign of eigenvectors such that they
+# best conform to the input time series
+Modes <- in_mat %*% collModes
+ts_avg <- in_mat %*% rep(1, n_ts) * 1 / n_ts
+for(i in 1:n_collModes){
+  sse <- sum((Modes[, i] - ts_avg)^2)
+  sse_neg <- sum((-Modes[, i] - ts_avg)^2)
+  sse_vec <- c(sse, sse_neg)
+  if(which(sse_vec == min(sse_vec)) == 2){
+    collModes[, i] <- -collModes[, i]
+  }
+}
+#-----------------------------
+n_collModes_really <- n_collModes
+n_collModes_to_graph <- n_collModes
+collModes_really <- collModes
+print(paste("Number of collective modes: ", n_collModes))
+if(ncol(collModes) > max_graph){
+  collModes <- collModes[, 1:max_graph]
+  n_collModes_to_graph <- max_graph
+}
+#-----------------------------
+# Contributions of items to each mode
+df_plot <- as.data.frame(collModes)
+gathercols <- colnames(df_plot)
+df_plot$Word <- colnames(in_mat)
+df_plot <- df_plot %>% gather_("Mode", "Contribution", gathercols)
+gg <- ggplot(df_plot, aes(x = Word, y = Contribution))
+gg <- gg + geom_bar(stat = "identity", position = "dodge")
+#gg <- gg + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+gg <- gg +  facet_wrap(~ Mode, ncol = 3)
+gg <- gg + theme(axis.text.x = element_blank(),
+                 axis.title.x = element_blank())
+gg
+
+
+
+### use this new text file to give word vectors
+model=word2vec(train_file = "vec.txt",output_file = "vec2.bin",binary=1)
+library(wordVectors)
+# write.table(corpus$content, "corp.txt", sep="\t")
+# prep_word2vec(origin = "corp.txt", destination = "corp2.txt", lowercase = T, bundle_ngrams = 3)
+# model = train_word2vec("corp.txt", "corp_vectors.bin", vectors = 200, threads = 4, window = 12, iter = 5, negative_samples = 0, force = T)
+#rm(corpus); gc()
+model = read.vectors("corp_vectors.bin")
+#-------------------------------------------
+#dimnames(model)[[1]] <- gsub("dash", "-", dimnames(model)[[1]])
+vocab <- dimnames(model)[[1]]
+head(vocab)
+vocab[1:150]
+
+
+model %>% closest_to("environ")
+model %>% closest_to("engin")
+
+
+#install.packages("tsne")
+library(tsne)
+plot(model, perplexity = 50)
+
+#=============================================
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+library(topicmodels)
+class(dtm)
+lda <- LDA(dtm, k =9, control = list(seed = 1234))
+lda
+topics <- tidy(lda, matrix = "beta")
+topics
+top_terms <- topics %>%
+  group_by(topic) %>%
+  top_n(10, beta) %>%
+  ungroup() %>%
+  arrange(topic, -beta)
+
+top_terms %>%
+  mutate(term = reorder(term, beta)) %>%
+  ggplot(aes(term, beta, fill = factor(topic))) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~ topic, scales = "free") +
+  coord_flip()
+
+beta_spread <- topics %>%
+  mutate(topic = paste0("topic", topic)) %>%
+  spread(topic, beta) %>%
+  filter(topic1 > .001 | topic2 > .001) %>%
+  mutate(log_ratio = log2(topic2 / topic1))
+
+beta_spread
+
+documents <- tidy(lda, matrix = "gamma")
+documents
+
+tidy(dtm) %>%
+  filter(document == 6) %>%
+  arrange(desc(count))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# data ---------------------------
+#rm(list=ls(all=TRUE))
+#gc()
+
+
+getDataSet <- function (filePath) {
+  if(!file.exists(filePath)){
+    stop ("Error: the file cannot be found...")
+  }
+  if (grepl('zip$', filePath)) {
+    tmp <- unzip(filePath, exdir = dirname(filePath))
+    data <- fread(tmp, header = TRUE, 
+                  data.table = TRUE, na.strings=c("NA","?", ""))
+    file.remove(tmp)
+    return (data)
+  } else {
+    return (fread(filePath, header = TRUE, 
+                  data.table = TRUE, na.strings=c("NA","?", "")))
+  }
+}
+
+getTextDataSet <- function (filePath) {
+  if(!file.exists(filePath)){
+    stop ("Error: the file cannot be found...")
+  }
+  ret <- do.call(rbind, strsplit(readLines(filePath), "||", fixed = TRUE))
+  ret <- setNames(data.table(ret[-1, ], stringsAsFactors = FALSE), c("ID", "txt"))
+  ret$ID <- as.numeric(ret$ID)
+  ordering <- order(ret$ID, decreasing = FALSE)
+  return (ret[ordering, ])
+}
+
+
+processCorpus <- function (corpus)
+{
+  corpus <- tm_map(corpus, stripWhitespace)
+  corpus <- tm_map(corpus, content_transformer(tolower))
+  corpus <- tm_map(corpus, stemDocument, language="english")
+  corpus <- tm_map(corpus, removePunctuation, preserve_intra_word_dashes = TRUE)
+  corpus <- tm_map(corpus, removeWords, stopwords("english"))
+  corpus <- tm_map(corpus, function (x) {
+    gsub("\\s*(?<!\\B|-)\\d+(?!\\B|-)\\s*", "", x, perl = TRUE) })
+  corpus <- tm_map(corpus, stripWhitespace)
+  return (corpus)
+}
+
+
+file_names <- paste0("CityofLA/Job Bulletins/", list.files("CityofLA/Job Bulletins"))
+
+corpus <- Corpus(DirSource("CityofLA/Job Bulletins"), readerControl = list(language="lat")) #specifies the exact folder where my text file(s) is for analysis with tm.
+summary(corpus)  #check what went in
+#corpus <- Corpus(VectorSource(unique(txtX$txt)))
+#length(corpus)
+corpus <- processCorpus(corpus)
+dtm <- DocumentTermMatrix(corpus) 
+dtm <- removeSparseTerms(dtm, 0.75)
+df_dtm <- tidy(dtm)
+df_dtm <- df_dtm %>% spread(term, count)
+df_dtm[is.na(df_dtm)] <- 0
+
+cormat <- cor(as.matrix(df_dtm[, -1]))
+image(cormat)
+#cormat <- cor(t(as.matrix(df_dtm[, -1])))
+#corrplot(cormat)
+#Apply correlation filter at 0.70,
+#highlyCor <- findCorrelation(cormat, cutoff = 0.7, verbose = TRUE)
+#print(highlyCor)
+#--
+res <- PCA(df_dtm[, -1])
+summary(res)
+fviz_pca_biplot(res)
+fviz_screeplot(res)
+res <- CA(df_dtm[, -1])
+# summary(res)
+fviz_screeplot(res)
+fviz_ca(res)
+fviz_ca_biplot(res)
+#--
+max_graph <- 4
+in_mat <- as.matrix(df_dtm[, -1])
+n_ts <- ncol(in_mat)
+  
+e <- eigen(cormat)
+eig_vectors <- e$vectors
+lam_cor <- e$values
+lamcor_max <- max(lam_cor)
+N_t <- nrow(in_mat)
+N_c <- ncol(in_mat)
+Q <- N_t / N_c
+s_sq <- 1 - lamcor_max / N_c
+#s_sq <- 1
+lamrand_max <- s_sq * (1 + 1 / Q + 2 / sqrt(Q))
+lamrand_min <- s_sq * (1 + 1 / Q - 2 / sqrt(Q))
+lam <- seq(lamrand_min, lamrand_max, 0.001)
+dens_rand <- Q / (2 * pi * s_sq) * sqrt((lamrand_max - lam) * (lam - lamrand_min)) / lam
+df_e <- data.frame(values = lam_cor)
+#--
+gg <- ggplot() +
+  geom_density(data = df_e, aes(x = values, color = "Correlation Matrix")) +
+  #geom_histogram(data = df_e, aes(x = values), alpha = 0.2) +
+  geom_line(data = data.frame(x = lam, y = dens_rand), aes(x = x, y = y, color = "Random matrix")) +
+  coord_cartesian(xlim = c(0, ceiling(lamcor_max))) +
+  scale_colour_manual(name = "Eigenvalue density", 
+                      values = c(`Correlation Matrix` = "blue", `Random matrix` = "orange"))
+
+print(gg)
+#-----------------------------
+# How many collective modes?
+ind_deviating_from_noise <- which(lam_cor > lamrand_max)
+collModes <- as.matrix(eig_vectors[, ind_deviating_from_noise])
+noiseModes <- as.matrix(eig_vectors[, -ind_deviating_from_noise])
+n_collModes <- ncol(collModes)
+#-----------------------------
+# Set sign of eigenvectors such that they
+# best conform to the input time series
+Modes <- in_mat %*% collModes
+ts_avg <- in_mat %*% rep(1, n_ts) * 1 / n_ts
+for(i in 1:n_collModes){
+  sse <- sum((Modes[, i] - ts_avg)^2)
+  sse_neg <- sum((-Modes[, i] - ts_avg)^2)
+  sse_vec <- c(sse, sse_neg)
+  if(which(sse_vec == min(sse_vec)) == 2){
+    collModes[, i] <- -collModes[, i]
+  }
+}
+#-----------------------------
+n_collModes_really <- n_collModes
+n_collModes_to_graph <- n_collModes
+collModes_really <- collModes
+print(paste("Number of collective modes: ", n_collModes))
+if(ncol(collModes) > max_graph){
+  collModes <- collModes[, 1:max_graph]
+  n_collModes_to_graph <- max_graph
+}
+#-----------------------------
+# Contributions of items to each mode
+df_plot <- as.data.frame(collModes)
+gathercols <- colnames(df_plot)
+df_plot$Word <- colnames(in_mat)
+df_plot <- df_plot %>% gather_("Mode", "Contribution", gathercols)
+gg <- ggplot(df_plot, aes(x = Word, y = Contribution))
+gg <- gg + geom_bar(stat = "identity", position = "dodge")
+#gg <- gg + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+gg <- gg +  facet_wrap(~ Mode, nrow = 2)
+gg <- gg + theme(axis.text.x = element_blank(),
+                 axis.title.x = element_blank())
+print(gg)
+#-
+# df_contrib <- data.frame(ts_id = col_order, Contribution)
+# df_contrib <- cbind(df_contrib, df_group[, c(2:ncol(df_group))])
+# mode_id <- c(1:n_collModes)
+# colnames(df_contrib)[2:(n_collModes + 1)] <- mode_id
+# gathercols <- as.character(mode_id)
+# df_contrib <- gather_(df_contrib, "Mode", "Contribution", gathercols)
+# #-----------------------------
+# if(is.null(df_group) == F){
+#   n_group_types <- ncol(df_group) - 1
+#   group_types <- colnames(df_group)[2:(n_group_types + 1)]
+#   ind_group_types <- 2:(n_group_types + 1)
+#   df_plot <- df_contrib
+#   #colnames(df_plot)[ind_group_types] <- group_types
+#   for(i in 1:n_group_types){
+#     ind_i <- i + 1
+#     this_group_label <- colnames(df_group)[ind_i]
+#     #df_plot <- df_plot[order(df_plot[, ind_group_types[i]]), ]
+#     group_label <- paste0("`", this_group_label, "`")
+#     #---
+#     if(AggregateContributions == F){
+#       #-----------------------
+#       xx <- df_plot[, ind_group_types[i]]
+#       df_plot$ts_id <- factor(df_plot$ts_id, levels = unique(df_plot$ts_id[order(xx)]))
+#       gg <- ggplot(df_plot, aes_string(x = "ts_id", y = "Contribution", fill = group_label)) +
+#         geom_bar(stat = "identity", position = "dodge") +
+#         #theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+#         facet_wrap(~ Mode, nrow = round(n_collModes / 2))
+#       if(n_ts <= 50){
+#         gg <- gg + theme(axis.text.x = element_text(angle = 60, hjust = 1))
+#       }else{
+#         gg <- gg + theme(axis.text.x = element_blank(),
+#                          axis.title.x = element_blank())
+#       }
+#       print(gg)
+#       #-----------------------
+#     }else{
+#       #-----------------------
+#       N_in_group <- c()
+#       Pvec_list <- list()
+#       these_groups <- unique(df_group[, ind_i])
+#       n_groups <- length(these_groups)
+#       for(j in 1:n_groups){
+#         this_group <- these_groups[j]
+#         Pvec <- rep(0, n_ts)
+#         ind_this_group <- which(df_group[, ind_i] == this_group)
+#         ts_in_group <- df_group[ind_this_group, 1]
+#         n_in_group <- length(ts_in_group)
+#         Pvec[ind_this_group] <- 1 / n_in_group
+#         Pvec_list[[j]] <- Pvec
+#         N_in_group[j] <- n_in_group
+#       }
+#       Pmat <- as.matrix(do.call(cbind, Pvec_list))
+#       #--------------------------
+#       mat_groupContrib <- t(Pmat) %*% Contribution
+#       #--------------------------
+#       df_groupContrib <- as.data.frame(mat_groupContrib)
+#       colnames(df_groupContrib) <- c(1:n_collModes)
+#       df_groupContrib$Group <- these_groups
+#       gathercols <- colnames(df_groupContrib)[1:n_collModes]
+#       df_plot <- gather_(df_groupContrib, "Mode", "Contribution", gathercols)
+#       if(n_collModes == 1){
+#         df_plot <- df_groupContrib
+#         colnames(df_plot)[1] <- "Value"
+#         df_plot$Mode <- 1
+#       }
+#       gg <- ggplot(df_plot, aes(x = Group, y = Contribution)) +
+#         geom_bar(stat = "identity") +
+#         facet_wrap(~ Mode, nrow = floor(n_collModes / 2)) +
+#         theme(axis.text.x = element_text(angle = 60, hjust = 1))
+#       print(gg)
+#       #-----------------------
+#     }
+#   }
+#   
+# }else{
+#   #-----------------------
+#   df_plot <- df_contrib
+#   gg <- ggplot(df_plot, aes_string(x = "ts_id", y = "Contribution")) +
+#     geom_bar(stat = "identity", position = "dodge") +
+#     #theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+#     facet_wrap(~ Mode, nrow = round(n_collModes / 2))
+#   if(n_ts <= 50){
+#     gg <- gg + theme(axis.text.x = element_text(angle = 60, hjust = 1))
+#   }else{
+#     gg <- gg + theme(axis.text.x = element_blank(),
+#                      axis.title.x = element_blank())
+#   }
+#   print(gg)
+#   #-----------------------
+#   
+# }
+# #-----------------------------
+# # Main contributors to each mode
+# select_main_contributors <- function(colvec, col_order, p_thresh){
+#   abs_colvec <- abs(colvec)
+#   q <- quantile(abs_colvec, p = p_thresh)
+#   ind_main <- which(abs_colvec >= q)
+#   top_contrib_absval <- sort(abs_colvec[ind_main], decreasing = T)
+#   ind_match <- match(top_contrib_absval, abs_colvec)
+#   top_contrib_name <- col_order[ind_match]
+#   top_contrib_val <- colvec[ind_match]
+#   df_out <- data.frame(Top_contributor = top_contrib_name, Eigvec_value = top_contrib_val)
+#   return(df_out)
+# }
+# p_thresh <- .90
+# mainContrib_list <- apply(collModes[, 2:ncol(collModes)], 2,
+#                           function(x) select_main_contributors(x, col_order, p_thresh))
+# for(m in 1:(n_collModes - 1)){mainContrib_list[[m]]$Mode <- m + 1}
+# df_mainContributors <- do.call(rbind, mainContrib_list)
+# print("Main contributors to each non-leading mode:")
+# print(df_mainContributors)
+# #--
+# df_plot <- df_mainContributors
+# df_plot$Mode <- as.factor(df_plot$Mode)
+# df_plot$Top_contributor <- factor(df_plot$Top_contributor, levels = unique(df_plot$Top_contributor))
+# gg <- ggplot(df_plot, aes(x = Top_contributor, y = Eigvec_value, fill = Mode)) +
+#   geom_bar(aes(fill = Mode), position = "dodge", stat = "identity") +
+#   theme(axis.text.x = element_text(angle = 60, hjust = 1))
+# print(gg)
+# #-----------------------------
+
+
+#-------------------------------------------
+#-------------------------------------------
+#-------------------------------------------
+# write.table(corpus$content, "corp.txt", sep="\t")
+# prep_word2vec(origin = "corp.txt", destination = "corp2.txt", lowercase = T, bundle_ngrams = 2)
+# model = train_word2vec("corp2.txt", "corp_vectors.bin", vectors = 200, threads = 4, window = 12, iter = 5, negative_samples = 0, force = T)
+#rm(corpus); gc()
+model = read.vectors("corp_vectors.bin")
+#-------------------------------------------
+#dimnames(model)[[1]] <- gsub("dash", "-", dimnames(model)[[1]])
+vocab <- dimnames(model)[[1]]
+head(vocab)
+vocab[1:150]
+
+
+model %>% closest_to("condit_cancer")
+model %>% closest_to("status_sexual")
+
+install.packages("tsne")
+library(tsne)
+plot(model, perplexity = 50)
+
+## Clustering
+
+
+
+
+set.seed(10)
+centers = 150
+clustering = kmeans(model,centers=centers,iter.max = 40)
+sapply(sample(1:centers,10),function(n) {
+  names(clustering$cluster[clustering$cluster==n][1:10])
+})
+
+
+ingredients = c("status_sexual","condit_cancer","reloabl_internet")
+term_set = lapply(ingredients, 
+                  function(ingredient) {
+                    nearest_words = model %>% closest_to(model[[ingredient]],20)
+                    nearest_words$word
+                  }) %>% unlist
+subset = model[[term_set,average=F]]
+subset %>%
+  cosineDist(subset) %>% 
+  as.dist %>%
+  hclust %>%
+  plot
+
+
+tastes = model[[c("interdepartment_promot","employ"),average=F]]
+# model[1:3000,] here restricts to the 3000 most common words in the set.
+sweet_and_saltiness = model[1:3000,] %>% cosineSimilarity(tastes)
+# Filter to the top 20 sweet or salty.
+sweet_and_saltiness = sweet_and_saltiness[
+  rank(-sweet_and_saltiness[,1])<20 |
+    rank(-sweet_and_saltiness[,2])<20,
+  ]
+
+
+plot(sweet_and_saltiness)
+text(sweet_and_saltiness,labels=rownames(sweet_and_saltiness))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+txtX <- getTextDataSet (file.path("training_text", fsep = .Platform$file.sep))
+txtXt <- getTextDataSet(file.path("test_text", fsep = .Platform$file.sep))
+
+n_txts <- length(unique(txtX$txt))
+txtX$IDtxt <- NA
+for(i in 1:n_txts)
+{
+  txtX$IDtxt[which(txtX$txt == unique(txtX$txt)[i])] <- i
+  
+}
+n_txts_test <- length(unique(txtXt$txt))
+txtXt$IDtxt <- NA
+for(i in 1:n_txts_test)
+{
+  txtXt$IDtxt[which(txtXt$txt == unique(txtXt$txt)[i])] <- i
+  
+}
+
+
+
+#max(txtX$IDtxt)
+#max(txtXt$IDtxt)
+#X$Gene
+# t(as.vector(unique(X$Variation)[1:10]))
+# write.csv(unique(X$Gene), "tempX.csv")
+X$Gene <- as.character(X$Gene)
+X$Variation <- as.character(X$Variation)
+uniq_genes <- unique(X$Gene)
+n_genes <- length(uniq_genes)
+uniq_varis <- unique(X$Variation)
+n_varis <- length(uniq_varis)
+uniq_genes_lc <- tolower(uniq_genes)
+uniq_genes_lc_stem <- stemDocument(uniq_genes_lc, language = "english")
+uniq_varis_lc <- tolower(uniq_varis)
+uniq_varis_lc_stem <- stemDocument(uniq_varis_lc, language = "english")
+
+alt_gene_names <- read.table("gene_decode.txt", sep="\t", header=TRUE)
+ind <- which(duplicated(alt_gene_names$Input) == T)
+alt_gene_names$Approved.symbol <- as.character(alt_gene_names$Approved.symbol)
+alt_gene_names$Approved.name <- as.character(alt_gene_names$Approved.name)
+alt_gene_names$Approved.symbol_alt <- NA
+alt_gene_names$Approved.name_alt <- NA
+alt_gene_names$Approved.symbol_alt[ind - 1] <- alt_gene_names$Approved.symbol[ind]
+alt_gene_names$Approved.name_alt[ind - 1] <- alt_gene_names$Approved.name[ind]
+alt_gene_names <- alt_gene_names[-ind, ]
+nrow(alt_gene_names)
+n_genes
+
+ind <- which(alt_gene_names$Match.type == "Previous symbol")
+alt_gene_names$Approved.symbol_alt[ind] <- alt_gene_names$Approved.symbol[ind]
+
+colnames(alt_gene_names)[1] <- "Gene"
+alt_gene_names$Gene <- as.character(alt_gene_names$Gene) 
+
+X <- merge(X, alt_gene_names[, c("Gene", "Approved.name", "Approved.name_alt", "Approved.symbol_alt")], by = "Gene")
+colnames(X)[5:ncol(X)] <- c("Gene_name", "Gene_name_alt", "Gene_symb_alt")
+
+X$Gene_lc_stem <- stemDocument(tolower(X$Gene), language = "english")
+X$Gene_symb_alt_lc_stem <- stemDocument(tolower(X$Gene_symb_alt), language = "english")
+X$Gene_name_lc_stem <- stemDocument(tolower(X$Gene_name), language = "english")
+X$Gene_name_alt_lc_stem <- stemDocument(tolower(X$Gene_name_alt), language = "english")
+X$Variation_lc_stem <- stemDocument(tolower(X$Variation), language = "english")
+X$IDtxt <- txtX$IDtxt
+X$Combo <- paste(X$Gene, X$Variation)
+
+# uniq_genes_name_lc_stem <- unique(X$Gene_name_lc_stem)
+# uniq_genes_name_alt_lc_stem <- unique(X$Gene_name_alt_lc_stem)
+# uniq_genes_symb_alt_lc_stem <- unique(X$Gene_symb_alt_lc_stem)
+# length(uniq_genes_name_alt_lc_stem)
+
+# ggplot(bc_data, aes(x = classes, fill = classes)) +
+#   geom_bar()
+
+# X$geneProb1 <- 0
+# X$geneProb2 <- 0
+# X$geneProb3 <- 0
+# X$geneProb4 <- 0
+# X$geneProb5 <- 0
+# for(i in 1:n_genes)
+# {
+#   occurtable <- table(unlist(X$Class[(X$Gene == this_gene)]))
+#   print(occurtable)
+#   df_occur <- as.data.frame(occurtable)
+#   df_occur
+# }
+
+rm(getDataSet, getTextDataSet)
+gc()
+
+
+# ind <- which(is.na(X$Gene_symb_alt) == F)
+# unique(X[ind, c("Gene", "Gene_symb_alt")])
+# "rhoa" %in% vocab
+
+
+#model <- wordVectors::read.binary.vectors("wordVecModel.bin")
+
+
+
+
+
+
+
+
+
+these_other_terms <- c("neutral", "gain", "loss", "switch", "inconclus", 
+                       "driver", "passeng", "oncogen", "recurr", "deleteri", "tumor", "fusion",
+                       "activ", "loh", "cancer", "harmless", "heterozygos", "amplif", "suppressor",
+                       "polymorph", "heterozygosity", "protein", "role", "missens", 
+                       "amino_acid", "pathway", "allel", "normal", "like", "promot", "inhibitor",
+                       "delet", "insert", "kinas", "ras", "cells", "cell_lines", "overexpress", "expression")
+
+dtm <- DocumentTermMatrix(corpus, control = list(weighting = weightTf))#weightTfIdf))
+# str(dtm)
+# str(dtm$dimnames$Terms)
+# inspect(dtm)
+#inspect(dtm[1:5, intersect(colnames(dtm), c(uniq_genes_lc_stem, uniq_varis_lc_stem))])
+#dtm <- dtm[, intersect(colnames(dtm), these_other_terms)]
+dtm2 <- dtm[, intersect(colnames(dtm), c(uniq_genes_lc_stem, uniq_varis_lc_stem, these_other_terms))]
+#dtm2 <- removeSparseTerms(dtm, 0.9999)
+dtm2 <- as.matrix(dtm2)
+df_dtm <- as.data.frame(dtm2)
+df_dtm$IDtxt <- c(1:nrow(df_dtm))
+# head(df_dtm)
+# dim(df_dtm)
+df_X <- as.data.frame(X)
+df <- merge(df_X[, c("Combo", "Class", "IDtxt")], df_dtm, by = "IDtxt")
+#str(df)
+#head(df)
+rownames(df) <- df$Combo
+colnames(df)[4]
+colnames(df)[ncol(df)]
+df2 <- df %>% group_by(Class) %>% summarize_at(vars(activ:r201q), sum)
+df2$Class <- NULL
+df2 <- as.data.frame(t(df2))
+res <- CA(df2, ncp = 25)
+summary(res)
+fviz_screeplot(res)
+fviz_ca(res)
+fviz_ca_biplot(res, alpha.row="contrib")
+
+str(res)
+df_outCA <- data.frame(Coord = res$row$coord, Contrib = res$row$contrib)
+head(df_outCA)
+df_outCA_G <- df_outCA[which(rownames(df_outCA) %in% uniq_genes_lc_stem),]
+df_outCA_V <- df_outCA[which(rownames(df_outCA) %in% uniq_varis_lc_stem),]
+colnames(df_outCA_G) <- paste("Gene", colnames(df_outCA))
+colnames(df_outCA_V) <- paste("Vari", colnames(df_outCA))
+df_outCA_G$Gene_lc_stem <- rownames(df_outCA_G)
+df_outCA_V$Variation_lc_stem <- rownames(df_outCA_V)
+df_G <- merge(df_X[, c("Combo", "Class", "Gene_lc_stem", "Variation_lc_stem")], df_outCA_G, by = "Gene_lc_stem")
+df_GV <- merge(df_G, df_outCA_V, by = "Variation_lc_stem")
+df_GV[, colnames(df_outCA)] <- df_GV[, paste("Gene", colnames(df_outCA))] + df_GV[, paste("Vari", colnames(df_outCA))]
+df_GV[, paste("Gene", colnames(df_outCA))] <- NULL
+df_GV[, paste("Vari", colnames(df_outCA))] <- NULL
+rownames(df_GV) <- df_GV$Combo
+res <- PCA(df_GV[, 5:ncol(df_GV)], ncp = 25)
+summary(res)
+fviz_screeplot(res)
+df_GV$Class <- as.factor(as.character(df_GV$Class))
+fviz_pca(res, axes = c(1, 2), habillage = df_GV$Class)
+
+
+#fviz_contrib(res, choice = "row", axes = 1)
+# row <- get_ca_row(res)
+# library("corrplot")
+# corrplot(row$contrib, is.corr=FALSE)
+# 1 Likely Loss-of-function
+# 2 Likely Gain-of-function
+# 3 Neutral
+# 4 Loss-of-function
+# 5 Likely Neutral
+# 6 Inconclusive
+# 7 Gain-of-function
+# 8 Likely Switch-of-function
+# 9 Switch-of-function
+df_outPCA <- data.frame(res$ind$coord, res$ind$contrib, res$ind$cos2)
+library(mclust)
+#mc <- Mclust(df[,4:ncol(df)])
+mc <- Mclust(df_outPCA)
+summary(mc)
+fviz_cluster(mc, frame.type = "norm", geom = "point")
+df_mc <- data.frame(mcClust = mc$classification, Class = df_X$Class)
+df_mc$Combo <- rownames(df_mc)
+print(table(unlist(df_mc$Class[(df_mc$mcClust == 6)])))
+library(cluster)
+pam.res <- pam(df_outPCA, 9)
+#pam.res <- pam(df[,4:ncol(df)], 5)
+# Visualize
+fviz_cluster(pam.res)
+#str(pam.res)
+df_pam <- data.frame(pamClust = pam.res$clustering, Class = df_X$Class)
+print(table(unlist(df_pam$Class[(df_pam$pamClust == 4)])))
+
+#library(cluster)
+set.seed(123)
+# Load the data
+# Subset of USArrests
+# ss <- sample(1:500, 20)
+# df <- scale(df_pca[ss, 3:ncol(df_pca)])
+#df <- scale(df_pca[, 3:ncol(df_pca)])
+# Compute fuzzy clustering
+res.fanny <- fanny(df[,4:ncol(df)], 9)
+# Cluster plot using fviz_cluster()
+# You can use also : clusplot(res.fanny)
+fviz_cluster(res.fanny, frame.type = "norm",
+             frame.level = 0.68)
+
+library(e1071)
+#cm <- cmeans(df[, 4:ncol(df)], 9)
+cm <- cmeans(df_outPCA, 5)
+# fviz_cluster(list(data = df[, 4:ncol(df)], cluster=cm$cluster), frame.type = "norm",
+#              frame.level = 0.68)
+fviz_cluster(list(data = df_outPCA, cluster=cm$cluster), frame.type = "norm",
+             frame.level = 0.68)
+
+str(cm)
+df_cm <- data.frame(pamClust = cm$cluster, Class = df_X$Class)
+print(table(unlist(df_cm$Class[(df_cm$pamClust == 1)])))
+
+
+# res.dist <- get_dist(df_pca[, 3:ncol(df_pca)], stand = TRUE, method = "pearson")
+# fviz_dist(res.dist, 
+#           gradient = list(low = "#00AFBB", mid = "white", high = "#FC4E07"))
+
+
+
+
+#===========================================
+
+#write.table(corpus$content, "corp.txt", sep="\t")
+# prep_word2vec(origin="corp.txt", destination="corp2.txt", lowercase=T, bundle_ngrams = 2)
+# model = train_word2vec("corp2.txt", "corp_vectors.bin", vectors = 200, threads = 4, window = 12, iter = 5, negative_samples = 0, force = T)
+#rm(corpus); gc()
+model = read.vectors("corp_vectors.bin")
+#-------------------------------------------
+#dimnames(model)[[1]] <- gsub("dash", "-", dimnames(model)[[1]])
+vocab <- dimnames(model)[[1]]
+head(vocab)
+vocab[1:150]
+# ind <- which(!(X$Gene_lc_stem %in% vocab))
+# unique(X$Gene_lc_stem[ind])
+#unique(txtX$txt[which(X$Gene == "RAD54L")])[1]
+
+# ind <- which(!(X$Variation_lc_stem %in% vocab))
+# ind <- which(uniq_varis_lc_stem %in% vocab)
+# length(ind) / length(uniq_varis_lc_stem)
+# unique(X$Variation_lc_stem[ind])
+
+#-------------------------------------------
+x <- stemDocument("insertion", language = "english")
+print(x)
+(x %in% vocab)
+rm(x)
+gc()
+("fam58a" %in% vocab)
+
+
+#X$Variation_lc_stem <- stemDocument(tolower(X$Variation), language = "english")
+this_gene <- "CBL"  #"BRCA1"
+#--
+table(unlist(X$Class[(X$Gene == this_gene)]))
+length(which(X$Gene == this_gene))
+#--
+these_varis <- X$Variation_lc_stem[(X$Gene == this_gene)]
+ind <- which(these_varis %in% vocab)
+length(ind)
+this_table <- X[intersect(which(X$Gene == this_gene), which(X$Variation_lc_stem %in% these_varis[ind])), c("Gene", "Variation", "Variation_lc_stem", "Class")]
+this_table
+
+#model %>% closest_to(~ "driver" + "oncogen" - "passeng" - "deleteri" , n = Inf)
+#rm(unique_txts)
+
+# term_str <- c("oncogen", "suppressor", "driver", "deleteri", "harmless",
+#               "hypermut", "hypermut_tumors", "hypermut_msi",
+#               "recurr", "passeng", "pathway", "neutral", "mutant")
+this_gene_lc_stem <- stemDocument(tolower(this_gene), language = "english")
+this_vari_lc_stem <- stemDocument(tolower(these_varis[ind[1]]), language = "english")
+these_vari_lc_stem <- stemDocument(tolower(these_varis[ind]), language = "english")
+#---------------------
+class_vars <- c("neutral", "gain", "loss", "switch", "inconclus")
+# cntrl_vars <- c("driver", "passeng", "oncogen", "recurr", "deleteri",
+#                 "activ", "loh", "cancer", "harmless",
+#                 "polymorph", "heterozygosity", "protein", "role", "missens") #, "heterozygosity") #"missens",
+cntrl_vars <- c("driver", "passeng", "oncogen", "recurr", "deleteri", "tumor", "fusion",
+                "activ", "loh", "cancer", "harmless", "heterozygos", "amplif", "suppressor",
+                "polymorph", "heterozygosity", "protein", "role", "missens", 
+                "amino_acid", "pathway", "allel", "normal", "like", "promot", "inhibitor",
+                "delet", "insert", "kinas", "ras", "cells", "cell_lines", "overexpress", "expression")
+#model %>% closest_to("suppressor")
+#---------------------
+
+term_vec <- c(class_vars, cntrl_vars, this_gene_lc_stem, these_vari_lc_stem)
+properties <- model[[term_vec, average = F]]
+head(properties)
+str(properties)
+df_prop <- as.data.frame(t(properties@.Data))
+#df_prop$GeneVari <- df_prop$cbl + df_prop$l399v
+df_prop$GeneVari <- df_prop$cbl + df_prop$n454d
+#df_prop$GeneVari <- df_prop$cbl + df_prop$v430m
+head(df_prop)
+#properties@.Data
+#library(corrplot)
+
+#this_classVar <- class_vars[1]
+#regrsrs <- paste(this_gene_lc_stem, this_vari_lc_stem, paste(setdiff(class_vars, this_classVar), collapse = " + "), paste(cntrl_vars, collapse = " + "), sep = " + ")
+regrsrs <- paste(class_vars, paste(cntrl_vars, collapse = " + "), sep = " + ")
+this_formula <- paste("GeneVari ~ ", regrsrs)[1]
+linmod <- lm(this_formula, data = df_prop)
+summod <- summary(linmod)
+print(summod)
+ggplot(data.frame(yhat = linmod$fitted.values, resid = summod$residuals), aes(x = yhat, y = resid)) + geom_point()
+#-----------
+# calculate correlation matrix
+corMatMy <- cor(df_prop[, c(cntrl_vars)])
+corrplot(corMatMy, order = "hclust")
+#Apply correlation filter at 0.70,
+highlyCor <- colnames(df_prop)[findCorrelation(corMatMy, cutoff = 0.7, verbose = TRUE)]
+print(highlyCor)
+corMatMy <- cor(df_prop[, c(class_vars)])
+corrplot(corMatMy, order = "hclust")
+#Apply correlation filter at 0.70,
+highlyCor <- colnames(df_prop)[findCorrelation(corMatMy, cutoff = 0.7, verbose = TRUE)]
+print(highlyCor)
+#-----------
+#vars_out <- c("int", class_vars, cntrl_vars)
+coef_colnames <- paste("Coef", vars_out, sep = "_")
+pval_colnames <- paste("Pval", vars_out, sep = "_")
+df_X <- as.data.frame(X)
+df_X$Combo <- paste(df_X$Gene, df_X$Variation)
+df_X[, coef_colnames] <- NA
+df_X[, pval_colnames] <- NA
+#--
+regrsrs <- paste(paste(class_vars, collapse = " + "), paste(cntrl_vars, collapse = " + "), sep = " + ")
+the_formula <- paste("GeneVari", "~", regrsrs)
+
+for(g in 1:n_genes)
+{
+  #-------------
+  #g = 2
+  this_gene <- uniq_genes[g]
+  this_gene_lc_stem <- uniq_genes_lc_stem[g]
+  these_varis_all <- df_X$Variation_lc_stem[(df_X$Gene == this_gene)]
+  these_varis <- these_varis_all[which(these_varis_all %in% vocab)]
+  print(paste("This gene:", this_gene))
+  n_varis_thisGene <- length(these_varis_all)
+  #print(paste("Total number of variations in this gene:", n_varis_thisGene))
+  n_varis_inCorpus <- length(these_varis)
+  #print(paste("Number of variations appearing in corpus:", n_varis_inCorpus))
+  print(paste(n_varis_inCorpus, "out of", n_varis_thisGene, "total variations under this gene appear in corpus."))
+  if(n_varis_thisGene > 1)
+  {
+    this_table <- df_X[intersect(which(df_X$Gene == this_gene), which(df_X$Variation_lc_stem %in% these_varis)), c("Gene", "Variation", "Variation_lc_stem", "Class")]
+    print(this_table)
+  }
+  print("Class distribution of this gene:")
+  print(table(unlist(df_X$Class[(df_X$Gene == this_gene)])))
+  if(n_varis_inCorpus == 0){next()}
+  if(!(this_gene_lc_stem %in% vocab)){print("This gene not in vocab, skipping to next...");next()}
+  #-------------
+  for(i in 1:length(these_varis))
+  {
+    this_vari_lc_stem <- these_varis[i]
+    if(length(which(df_X$Variation_lc_stem == this_vari_lc_stem)) > 1)
+    {
+      n_occur_thisVari <- length(which(df_X$Variation_lc_stem == this_vari_lc_stem))
+      print(paste0("This variation, ", this_vari_lc_stem, ", appears across ",  n_occur_thisVari, " genes."))
+      print("Class distribution of this variation:")
+      print(table(unlist(df_X$Class[df_X$Variation_lc_stem == this_vari_lc_stem])))
+    }
+    #--
+    # term_vec <- c(class_vars, cntrl_vars, this_gene_lc_stem, this_vari_lc_stem)
+    # properties <- model[[term_vec,average = F]]
+    # df_this_space <- as.data.frame(model %>% cosineSimilarity(properties))
+    #head(df_this_space)
+    #--
+    term_vec <- c(class_vars, cntrl_vars, this_gene_lc_stem, this_vari_lc_stem)
+    properties <- model[[term_vec, average = F]]
+    # head(properties)
+    # str(properties)
+    #df_prop <- as.data.frame(t(properties@.Data))
+    df_prop <- as.data.frame(model %>% cosineSimilarity(properties))
+    df_prop <- df_prop[which(rownames(df_prop) %in% c(uniq_genes_lc_stem, uniq_varis_lc_stem)),]
+    head(df_prop)
+    #df_prop$GeneVari <- df_prop$cbl + df_prop$l399v
+    df_prop$GeneVari <- df_prop[, this_gene_lc_stem] + df_prop[, this_vari_lc_stem]
+    #df_prop$GeneVari <- df_prop$cbl + df_prop$v430m
+    #head(df_prop)
+    linmod <- lm(the_formula, data = df_prop)
+    colnames(df_prop)
+    #summary(linmod)
+    summod <- summary(linmod)
+    #--coeffs on class & control vars
+    row_ind <- intersect(which(df_X$Gene_lc_stem == this_gene_lc_stem), which(df_X$Variation_lc_stem == this_vari_lc_stem))
+    df_X[row_ind, coef_colnames] <- as.numeric(linmod$coefficients)
+    df_X[row_ind, pval_colnames] <- round(as.numeric(summod$coefficients[, "Pr(>|t|)"]), 3)
+  }
+  #--> next variation
+}
+#--> next gene
+
+rm(linmod, summod)
+gc()
+
+df_X_bu <- df_X
+df_X$Class <- as.factor(as.character(df_X$Class))
+
+df_coef <- df_X[which(is.na(df_X$Coef_int) == F), c("Combo", "Class", colnames(df_X)[which(colnames(df_X) %in% c(coef_colnames))])]
+df_CA <- df_coef %>% group_by(Class) %>% summarise_at(c(3:ncol(df_coef)), sum)
+
+
+
+df_coef_pval <- df_X[which(is.na(df_X$Coef_int) == F), c("Combo", "Class", colnames(df_X)[which(colnames(df_X) %in% c(coef_colnames, pval_colnames))])]
+rownames(df_coef_pval) <- df_coef_pval$Combo
+res_coef_pval <- PCA(df_coef_pval[,3:ncol(df_coef_pval)], ncp = 20)
+fviz_screeplot(res_coef_pval, ncp=20)
+fviz_pca_ind(res_coef_pval, axes = c(1,10), label= "none", habillage = df_X$Class[which(is.na(df_X$Coef_int) == F)])#, addEllipses = T, ellipse.level=0.95)
+df_clust <- as.data.frame(res_coef_pval$ind$coord %*% t(res_coef_pval$ind$coord))
+mc <- Mclust(df_clust)
+summary(mc)
+fviz_cluster(mc, frame.type = "norm", geom = "point")
+df_mc <- data.frame(mcClust = mc$classification, Class = df_X$Class[which(is.na(df_X$Coef_int) == F)])
+df_mc$Combo <- rownames(df_mc)
+print(table(unlist(df_mc$Class[(df_mc$mcClust == 4)])))
+library(cluster)
+pam.res <- pam(df_clust, 4)
+# Visualize
+fviz_cluster(pam.res)
+#str(pam.res)
+df_pam <- data.frame(pamClust = pam.res$clustering, Class = df_X$Class[which(is.na(df_X$Coef_int) == F)])
+print(table(unlist(df_pam$Class[(df_pam$pamClust == 3)])))
+
+
+
+df_coef <- df_X[which(is.na(df_X$Coef_int) == F), c("Combo", "Class", colnames(df_X)[which(colnames(df_X) %in% c(coef_colnames))])]
+df_pval <- df_X[which(is.na(df_X$Coef_int) == F), c("Combo", "Class", colnames(df_X)[which(colnames(df_X) %in% c(pval_colnames))])]
+rownames(df_coef) <- df_coef$Combo
+rownames(df_pval) <- df_pval$Combo
+res_coef <- PCA(df_coef[,3:ncol(df_coef)], ncp = 20)
+res_pval <- PCA(df_pval[,3:ncol(df_pval)], ncp = 20)
+fviz_screeplot(res_coef, ncp=20)
+fviz_pca_ind(res_coef, axes = c(1,2), label= "none", habillage = df_X$Class[which(is.na(df_X$Coef_int) == F)])#, addEllipses = T, ellipse.level=0.95)
+fviz_screeplot(res_pval, ncp=20)
+fviz_pca_ind(res_pval, axes = c(1,2), label= "none", habillage = df_X$Class[which(is.na(df_X$Coef_int) == F)])#, addEllipses = T, ellipse.level=0.95)
+df_coef <- as.data.frame(res_coef$ind$coord)
+df_pval <- as.data.frame(res_pval$ind$coord)
+
+#df_clust <- cbind(df_coef, df_pval)
+df_clust <- as.data.frame((as.matrix(df_coef)) %*% t(as.matrix(1 - df_pval)))
+
+library(mclust)
+# Model-based-clustering (takes a little bit -- Correctly chooses 9 as optimal number of clusters!)
+mc <- Mclust(df_clust)
+# Print a summary
+summary(mc)
+mc$G
+fviz_cluster(mc, frame.type = "norm", geom = "point")
+
+df_mc <- data.frame(mcClust = mc$classification, Class = df_X$Class[which(is.na(df_X$Coef_int) == F)])
+df_mc$Combo <- rownames(df_mc)
+print(table(unlist(df_mc$Class[(df_mc$mcClust == 9)])))
+
+
+res <- PCA(df_clust, ncp = 10)
+df_outPCA <- as.data.frame(res$ind$coord[, 1:10])
+df_outPCA$Combo <- rownames(df_outPCA)
+df_mod <- inner_join(df[, c("Combo", "Class")], df_outPCA)
+#--------------
+outcomeName <- "Class"
+#df_mod$Pval_int_inconclus <- NULL
+#z-score
+# ind <- grep("Pval", colnames(df_mod))
+# df_mod[,ind] <- scale(df_mod[,ind], center = T)
+
+
+# df_featsG <- df_Xred[,grep("Gene", colnames(df_Xred))]
+# df_featsV <- df_Xred[,grep("Vari", colnames(df_Xred))]
+# df_featsCombo <- df_featsG + df_featsV
+# df_Xred2 <- cbind(df_Xred[, c("Class", "Group", "pamClust"),], df_featsCombo)
+# one-hot-encoding categorical features
+# df_mod$pamClust <- as.factor(as.character(df_mod$pamClust))
+df_mod$mcClust <- as.factor(as.character(df_mod$mcClust))
+#colnames(df_mod)
+ohe_feats = c("mcClust")
+dummies <- dummyVars(~ mcClust, data = df_mod)
+df_ohe <- as.data.frame(predict(dummies, newdata = df_mod))
+df_mod <- cbind(df_mod[,-c(which(colnames(df_mod) %in% ohe_feats))], df_ohe)
+#--------------------------
+predictorsNames <- setdiff(colnames(df_mod), c("Combo", "Class"))
+#--------------------------
+
+set.seed(1234)
+splitIndex <- createDataPartition(df_mod[, outcomeName], p = .5, list = FALSE, times = 1)
+trainDF <- df_mod[ splitIndex,]
+testDF  <- df_mod[-splitIndex,]
+
+#this_method <- "glmnet"
+#this_method <- "glm"
+#this_method <- "nb"
+#this_method <- "gbm" #good
+#this_method <- "xgbLinear" #better
+#this_method <- "xgbTree"
+#this_method <- "naive_bayes"
+#this_method <- "svmRadial"
+this_method <- "cforest"
+#this_method <- "rf"
+
+# gbmGrid <-  expand.grid(n.trees = 50, interaction.depth =  c(1, 5, 9),
+#                         shrinkage = 0.01, n.minobsinnode = )
+# run model
+# head(trainDF[,predictorsNames])
+# head(trainDF[,outcomeName])
+# head(trainDF)
+#=============================
+modelLookup("cforest")
+#=============================
+objControl <- trainControl(method='repeatedcv', number=10, repeats = 10)
+objModel <- train(trainDF[, predictorsNames], trainDF[, outcomeName],
+                  method = "cforest", trControl = objControl)
+varImp(objModel,scale=T)
+# probabilities ("prob") or integer ("raw")
+predictions <- predict(object=objModel, testDF[,predictorsNames], type='raw') #type='prob')
+print(postResample(pred=predictions, obs=as.factor(testDF[,outcomeName])))  
+
+#head(predictions)
+x <- confusionMatrix(predictions, testDF[, outcomeName])
+confmat <- x$table
+confmat <- round(confmat %*% solve(diag(colSums(confmat))), 3)
+confmat <- as.table(confmat)
+colnames(confmat) <- rownames(confmat)
+names(dimnames(confmat))[2] <- "Reference"
+print(confmat)
+print(x$table)
+class(confmat)
+df_plot <- as.data.frame(confmat)
+gg <- ggplot(df_plot) + geom_tile(aes(x = Prediction, y = Reference, fill = Freq))
+gg <- gg + scale_fill_gradient2(low = muted("green"), high = muted("blue"))
+gg
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#================================
+term_vec <- c(class_vars, cntrl_vars)
+properties <- model[[term_vec, average = F]]
+df_propCos <- model %>% cosineSimilarity(properties)
+df_propCos <- as.data.frame(df_propCos)
+#head(df_propCos)
+df_propCosG <- subset(df_propCos, rownames(df_propCos) %in% uniq_genes_lc_stem)
+df_propCosV <- subset(df_propCos, rownames(df_propCos) %in% uniq_varis_lc_stem)
+feat_names_raw <- colnames(df_propCosG)
+df_X <- as.data.frame(X)
+df_X$Combo <- paste(df_X$Gene, df_X$Variation)
+Gcolnames <- paste("Gene", colnames(df_propCosG))
+colnames(df_propCosG) <- Gcolnames
+df_propCosG$Gene_lc_stem <- rownames(df_propCosG)
+df_Xred <- inner_join(df_X, df_propCosG)
+Vcolnames <- paste("Vari", colnames(df_propCosV))
+colnames(df_propCosV) <- Vcolnames
+df_propCosV$Variation_lc_stem <- rownames(df_propCosV)
+df_Xred <- inner_join(df_Xred, df_propCosV, by = "Variation_lc_stem")
+
+# 1 Likely Loss-of-function
+# 2 Likely Gain-of-function
+# 3 Neutral
+# 4 Loss-of-function
+# 5 Likely Neutral
+# 6 Inconclusive
+# 7 Gain-of-function
+# 8 Likely Switch-of-function
+# 9 Switch-of-function
+group1 <- c(1, 4)
+group2 <- c(8, 9)
+group3 <- c(3, 5)
+group4 <- c(2, 7)
+group5 <- 6
+#-
+df_Xred$Group <- NA
+df_Xred$Group[which(df_Xred$Class %in% group1)] <- 1
+df_Xred$Group[which(df_Xred$Class %in% group2)] <- 2
+df_Xred$Group[which(df_Xred$Class %in% group3)] <- 3
+df_Xred$Group[which(df_Xred$Class %in% group4)] <- 4
+df_Xred$Group[which(df_Xred$Class %in% group5)] <- 5
+#df_Xred$Group <- make.names(df_Xred$Group)
+df_Xred$Group <- as.factor(as.character(df_Xred$Group))
+df_Xred$Class <- make.names(df_Xred$Class)
+df_Xred$Class <- as.factor(as.character(df_Xred$Class))
+feat_names <- c(Gcolnames, Vcolnames)
+df_Xred <- df_Xred[, c("Combo", "Class", feat_names)]
+rownames(df_Xred) <- df_Xred$Combo
+
+df_featsG <- df_Xred[,grep("Gene", colnames(df_Xred))]
+df_featsV <- df_Xred[,grep("Vari", colnames(df_Xred))]
+df_featsCombo <- df_featsG + df_featsV
+feat_names_combo <- paste("Combo", feat_names_raw)
+colnames(df_featsCombo) <- feat_names_combo
+df_Xred2 <- cbind(df_Xred[, c("Combo", "Class"),], df_featsCombo)
+
+#df <- df_Xred[, 3:ncol(df_Xred)]
+df <- df_Xred2[,3:ncol(df_Xred2)]
+
+#PCA using FactoMineR
+res <- PCA(df, ncp = 10)
+fviz_screeplot(res, ncp=20)
+fviz_pca_ind(res, axes = c(1,2), label= "none", habillage = df_Xred2$Class)#, addEllipses = T, ellipse.level=0.95)
+# fviz_pca_biplot(iris.pca, 
+#                 habillage = iris$Species, addEllipses = TRUE,
+#                 col.var = "red", alpha.var ="cos2",
+#                 label = "var") +
+#   scale_color_brewer(palette="Dark2")
+
+#Optimum number of clusters (takes a while-- but gave correct number of 9!)
+fviz_nbclust(df, kmeans, method = "gap_stat")
+#optimal clustering method
+# Compute clValid (takes a longer while)
+library("clValid")
+intern <- clValid(df, nClust = 2:4, clMethods = c("hierarchical","kmeans","pam"),
+                  validation = "internal")
+# Summary
+summary(intern)
+
+#Determing clusterability of data
+get_clust_tendency(df, n = 50, gradient = list(low = "steelblue",  high = "white"))
+
+#Basic kmeans clustering
+km.res <- kmeans(df, 9, nstart = 25)
+# Visualize
+fviz_cluster(km.res, data = df, frame.type = "convex") + theme_minimal()
+#Partition clustering (I like better than kmeans -- almost same but gives cleaner separation of clusters)
+library(cluster)
+pam.res <- pam(df, 9)
+# Visualize
+fviz_cluster(pam.res)
+#str(pam.res)
+
+df_pam <- data.frame(pamClust = pam.res$clustering, Class = df_Xred2$Class)
+
+# df_Xred$pamClust <- df_pam$pamClust
+# df_Xred <- df_Xred[, c("Class", "pamClust", "Group", feat_names)]
+# df_Xred <- df_Xred[order(df_Xred[, "pamClust"]),]
+print(table(unlist(df_pam$Class[(df_pam$pamClust == 4)])))
+
+
+#Clustering with random forest
+# library(randomForest)
+# out_rf <- randomForest(df_pca[, 3:ncol(df_pca)])
+# str(out_rf)
+# out_rf$importance
+# MDSplot(out_rf, df_pca[, "Class"])
+
+
+
+
+
+
+
+
+#========================
+#Classification by supervised learning
+res <- PCA(df_Xred2[, 3:ncol(df_Xred2)], ncp = 8)
+df_Xred2pca <- as.data.frame(res$ind$coord)
+df_Xred2pca$Combo <- rownames(df_Xred2pca)
+df_mod <- inner_join(df_Xred2pca, df_mc, by = c("Combo"))
+#df_mod <- inner_join(df_Xred2, df_mc, by = c("Class", "Combo"))
+head(df_mod)
+nrow(df_mod)
+df_mod <- 
+  #outcomeName <- "Group"
+  outcomeName <- "Class"
+
+#df_mod$Pval_int_inconclus <- NULL
+#z-score
+# ind <- grep("Pval", colnames(df_mod))
+# df_mod[,ind] <- scale(df_mod[,ind], center = T)
+
+
+# df_featsG <- df_Xred[,grep("Gene", colnames(df_Xred))]
+# df_featsV <- df_Xred[,grep("Vari", colnames(df_Xred))]
+# df_featsCombo <- df_featsG + df_featsV
+# df_Xred2 <- cbind(df_Xred[, c("Class", "Group", "pamClust"),], df_featsCombo)
+# one-hot-encoding categorical features
+# df_mod$pamClust <- as.factor(as.character(df_mod$pamClust))
+df_mod$mcClust <- as.factor(as.character(df_mod$mcClust))
+#colnames(df_mod)
+ohe_feats = c("mcClust")
+dummies <- dummyVars(~ mcClust, data = df_mod)
+df_ohe <- as.data.frame(predict(dummies, newdata = df_mod))
+df_mod <- cbind(df_mod[,-c(which(colnames(df_mod) %in% ohe_feats))], df_ohe)
+predictorsNames <- setdiff(colnames(df_mod), c("Combo", "Class"))
+
+
+set.seed(1234)
+splitIndex <- createDataPartition(df_mod[, outcomeName], p = .5, list = FALSE, times = 1)
+trainDF <- df_mod[ splitIndex,]
+testDF  <- df_mod[-splitIndex,]
+
+#this_method <- "glmnet"
+#this_method <- "glm"
+#this_method <- "nb"
+#this_method <- "gbm" #good
+#this_method <- "xgbLinear" #better
+#this_method <- "xgbTree"
+#this_method <- "naive_bayes"
+#this_method <- "svmRadial"
+this_method <- "cforest"
+#this_method <- "rf"
+
+# gbmGrid <-  expand.grid(n.trees = 50, interaction.depth =  c(1, 5, 9),
+#                         shrinkage = 0.01, n.minobsinnode = )
+# run model
+# head(trainDF[,predictorsNames])
+# head(trainDF[,outcomeName])
+# head(trainDF)
+#=============================
+modelLookup("cforest")
+#=============================
+
+xgb_grid_1 <- expand.grid(
+  nrounds= 2400,
+  lambda = 1,
+  alpha =0,
+  eta=c(0.01,0.001,0.0001))
+
+xgb_trcontrol <- trainControl(
+  method="cv",
+  number = 5,
+  verboseIter = TRUE,
+  returnData=FALSE,
+  returnResamp = "all",
+  allowParallel = TRUE)
+objModel <- train(trainDF[, predictorsNames], trainDF[, outcomeName],
+                  method = this_method, trControl = xgb_trcontrol,
+                  tuneGrid = xgb_grid_1)
+
+
+
+#objControl <- trainControl(method='cv', number=5, returnResamp='none', classProbs = TRUE)
+objControl <- trainControl(method='repeatedcv', number=10, repeats = 10, classProbs = TRUE, 
+                           sampling = "up")#, summaryFunction = twoClassSummary)
+##DON'T FORGET TO CHANGE "sampling = " AS NECESSARY
+objControl <- trainControl(method='repeatedcv', number=10, repeats = 10)
+
+# gbmGrid <- expand.grid(interaction.depth = c(1, 5, 9),
+#                        n.trees = (1:30)*50, shrinkage = 0.1, 
+#                        n.minobsinnode = 20)
+
+
+
+#g = createGrid("cforest", len, data)
+objModel <- train(trainDF[, predictorsNames], trainDF[, outcomeName],
+                  method = "cforest", trControl = objControl)
+
+
+objControl <- trainControl(method='repeatedcv', number=10, repeats = 10, classProbs = TRUE, 
+                           sampling = "up")#, summaryFunction = twoClassSummary)
+nbGrid <- data.frame(fL=c(0,0.5,1.0), usekernel = TRUE, adjust=c(0,0.5,1.0))
+objModel <- train(trainDF[, predictorsNames], trainDF[, outcomeName], method = this_method, trControl = objControl,
+                  tuneGrid = nbGrid)
+
+# objModel <- train(trainDF[, predictorsNames], trainDF[, outcomeName], method = this_method)
+# trainDF2 <- trainDF[, which(colnames(trainDF) != "Class")]
+# objModel <- caret::train(Group ~ .,
+#              data = trainDF2,
+#              method = this_method,
+#              #preProcess = c("scale", "center"),
+#              trControl = objControl)
+
+#
+varImp(objModel,scale=T)
+# probabilities ("prob") or integer ("raw")
+predictions <- predict(object=objModel, testDF[,predictorsNames], type='raw') #type='prob')
+print(postResample(pred=predictions, obs=as.factor(testDF[,outcomeName])))  
+
+#head(predictions)
+x <- confusionMatrix(predictions, testDF[, outcomeName])
+confmat <- x$table
+confmat <- round(confmat %*% solve(diag(colSums(confmat))), 3)
+confmat <- as.table(confmat)
+colnames(confmat) <- rownames(confmat)
+names(dimnames(confmat))[2] <- "Reference"
+print(confmat)
+print(x$table)
+class(confmat)
+df_plot <- as.data.frame(confmat)
+gg <- ggplot(df_plot) + geom_tile(aes(x = Prediction, y = Reference, fill = Freq))
+gg <- gg + scale_fill_gradient2(low = muted("green"), high = muted("blue"))
+gg
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ind1 <- which(X$Gene_lc_stem %in% vocab)
+ind2 <- which(X$Variation_lc_stem %in% vocab)
+X$Combo <- paste(X$Gene_lc_stem, X$Variation_lc_stem)
+
+
+
+gain_avg <- model[[c("gain", "gains")]]
+loss_avg <- model[[c("loss", "losses")]]
+look <- model %>% closest_to(~ gain_avg - loss_avg, n = Inf)
+look <- model %>% closest_to(~ "gain" - "loss", n = Inf)
+
+look[1:40,]
+
+properties <- model[[c("inconclus", "missens", "cancer", "passeng", "driver"), average = F]]
+#properties <- model %>% closest_to(~ "driver" - "passeng")
+#properties <- as.VectorSpaceModel(properties)
+chronam_vectors[[c("passeng", "driver")]]
+class(properties)
+head(properties)
+sweet_and_saltiness = model %>% cosineSimilarity(properties)
+#head(sweet_and_saltiness)
+df <- as.data.frame(sweet_and_saltiness)
+head(df)
+
+#library(corrplot)
+# calculate correlation matrix
+corMatMy <- cor(df)
+corrplot(corMatMy, order = "hclust")
+
+
+#-------
+prop_names <- c("driverness", "gainness", "cancerness")
+driverness <- model %>% closest_to(~ "driver" - "passeng", n = Inf)
+gainness <- model %>% closest_to(~ "gain" - "loss", n = Inf)
+cancerness <- model %>% closest_to(~ "cancer" - "harmless", n = Inf)
+props
+list_dfs <- list(driverness, gainness, cancerness)
+#-------
+df <- join_all(list_dfs)
+colnames(df)[2:ncol(df)] <- prop_names
+df_gene <- subset(df, df$word %in% uniq_genes_lc_stem)
+colnames(df_gene) <- c("Gene_lc_stem", paste("Gene", prop_names))
+df_vari <- subset(df, df$word %in% uniq_varis_lc_stem)
+colnames(df_vari) <- c("Variation_lc_stem", paste("Vari", prop_names))
+#length(which(duplicated(df_gene$Gene_lc_stem)))
+head(df_gene)
+head(df_vari)
+df_X <- as.data.frame(X)
+df_X$Combo <- paste(df_X$Gene, df_X$Variation)
+df2 <- inner_join(df_X, df_gene)
+df2 <- inner_join(df2, df_vari, by = "Variation_lc_stem")
+df2$`Combo driverness` <- df2$`Gene driverness` + df2$`Vari gainness`
+df2$`Combo gainness` <- df2$`Gene gainness` + df2$`Vari gainness`
+df2$`Combo cancerness` <- df2$`Gene cancerness` + df2$`Vari cancerness`
+
+df_plot <- df2
+df_plot[1:20,]
+library(ggrepel)
+gg <- ggplot(df_plot, aes(x = `Combo driverness`, y = `Combo cancerness`)) + geom_point()
+gg <- gg + geom_text_repel(aes(label = Combo))
+gg
+
+all_foods$meatiness_vs_veginess = cosineSimilarity(foods,meat_vegetable_vector)
+
+sweet_salty_vector = chronam_vectors[[c("sugar","sweet")]] - chronam_vectors[[c("salty","salt")]]
+
+all_foods$sweet_vs_salty = cosineSimilarity(foods,sweet_salty_vector)
+
+df_geneVar <- 
+  
+  
+  
+  #df <- subset(df, rownames(df) %in% c(term_vec, uniq_genes_lc_stem, uniq_varis_lc_stem))
+  #df <- subset(df, rownames(df) %in% c(uniq_genes_lc_stem, uniq_varis_lc_stem))
+  #paste(str1, str2, paste(strvec, collapse = " + "), sep = " + ")
+  rm(sweet_and_saltiness); gc()
+
+#=======
+# ind <- which(duplicated(X$Variation))
+# length(ind)
+# unique(X$Variation[ind])
+# print(unique(X$Variation[ind])[1])
+# print(table(unlist(X$Class[(X$Variation == unique(X$Variation[ind])[1])])))
+class_vars <- c("neutral", "gain", "loss", "switch", "inconclus")
+cntrl_vars <- c("driver", "passeng", "oncogen", "recurr", "deleteri", 
+                "harmless", "activ", "loh", "cancer", 
+                "polymorph", "heterozygosity", "protein", "role", "missens") #, "heterozygosity") #"missens",
+
+#df_X[, grep("Pval", colnames(df_X))] <- df_X[, grep("Pval", colnames(df_X))] * 10^(-1)
+
+df_X_bu <- df_X
+#df_X <- df_X_bu
+
+
+df_X$Gene_prob <- 0 
+df_X$Vari_prob <- 0
+#dimnames(table(unlist(df_X$Gene)))
+tabGprob <- table(unlist(df_X$Gene)) / length(uniq_genes)
+tabVprob <- table(unlist(df_X$Variation)) / length(uniq_varis)
+class_cols <- paste("classProbInGene", as.character(c(1:9)), sep = "_")
+df_X[, class_cols] <- 0
+
+
+rep.row <- function(x,n){
+  matrix(rep(x,each=n),nrow=n)
+}
+for(i in 1:n_genes){
+  this_gene <- dimnames(tabGprob)[i]
+  print(this_gene)
+  ind <- which(df_X$Gene == this_gene)
+  n_occur_thisGene <- length(ind)
+  df_X$Gene_prob[ind] <- as.numeric(tabGprob[i])
+  df_tabl <- as.data.frame(table(unlist(df_X$Class[ind])))
+  these_classes <- as.character(df_tabl$Var1)
+  class_cols <- paste("classProbInGene", these_classes, sep = "_")
+  df_X[ind, class_cols] <- as.data.frame(rep.row(df_tabl$Freq, n_occur_thisGene) / n_occur_thisGene)
+  #View(df_X[ind, class_cols])
+}
+
+
+
+
+
+#df_X[, grep("Pval", colnames(df_X))] <- 10^(-1) * df_X[, grep("Pval", colnames(df_X))]
+
+# row_ind <- intersect(which(X$Gene == this_gene), which(df_X$Variation_lc_stem %in% these_varis[ind]))
+# df_X[row_ind, c("Gene", "Variation", "Class", yTy_colname, coef_colnames[1:3], pval_colnames[1:3])]
+
+#--
+# 1 Likely Loss-of-function
+# 2 Likely Gain-of-function
+# 3 Neutral
+# 4 Loss-of-function
+# 5 Likely Neutral
+# 6 Inconclusive
+# 7 Gain-of-function
+# 8 Likely Switch-of-function
+# 9 Switch-of-function
+
+ind1 <- which(!(is.na(df_X$Coef_int_neutral)))
+colnames(df_X)
+these <- colnames(df_X)[grep(c("lc"), colnames(df_X))]
+these_too <- colnames(df_X)[grep(c("alt"), colnames(df_X))]
+#these_3 <- colnames(df_X)[grep(c("Pval"), colnames(df_X))]
+#these_4 <- colnames(df_X)[grep(c("int"), colnames(df_X))]
+these_cols <- unique(c(these, these_too))#, these_3))
+cols <- setdiff(colnames(df_X), c("ID", "Gene", "Variation", "Gene_name", these_cols))
+#--
+df_mod <- df_X[ind1, cols]
+#--
+round(table(unlist(df_mod$Class)) / nrow(df_mod), 2)
+round(table(unlist(df_X$Class)) / nrow(df_X), 2)
+#round(table(unlist(X$Class)) / nrow(X), 3)
+
+#df_mod <- df_mod[!(df_mod$Class %in% c(5, 6)),]
+
+group1 <- c(1, 4, 8, 9)
+#group2 <- c(2, 3, 5, 6, 7)
+group2 <- c(2, 7)
+group3 <- c(3, 5, 6)
+#-
+# group1 <- c(1, 4, 8, 9)
+# group2 <- c(2, 3, 5, 6, 7)
+#-
+# group1 <- c(1, 4, 9)
+# group2 <- c(8)
+# group3 <- c(3)
+# group4 <- c(2, 7)
+# group5 <- c(5, 6)
+
+df_mod$Group <- NA
+df_mod$Group[(df_mod$Class %in% group1)] <- 1
+df_mod$Group[(df_mod$Class %in% group2)] <- 2
+df_mod$Group[(df_mod$Class %in% group3)] <- 3
+#-
+# df_mod$Group[(df_mod$Class %in% group3)] <- 3
+# df_mod$Group[(df_mod$Class %in% group4)] <- 4
+# df_mod$Group[(df_mod$Class %in% group5)] <- 5
+#which(is.na(df_mod$Group))
+
+df_mod$Class <- make.names(df_mod$Class)
+df_mod$Class <- as.factor(as.character(df_mod$Class))
+
+df_mod$Group <- make.names(df_mod$Group)
+df_mod$Group <- as.factor(as.character(df_mod$Group))
+
+outcomeName <- "Group"
+#outcomeName <- "Class"
+
+#df_mod$Pval_int_inconclus <- NULL
+predictorsNames <- setdiff(colnames(df_mod), c("Class", "Group"))
+#z-score
+# ind <- grep("Pval", colnames(df_mod))
+# df_mod[,ind] <- scale(df_mod[,ind], center = T)
+
+
+set.seed(1234)
+splitIndex <- createDataPartition(df_mod[,outcomeName], p = .5, list = FALSE, times = 1)
+trainDF <- df_mod[ splitIndex,]
+testDF  <- df_mod[-splitIndex,]
+
+#this_method <- "glmnet"
+#this_method <- "glm"
+#this_method <- "nb"
+this_method <- "gbm" #good
+#this_method <- "xgbLinear" #better
+#this_method <- "xgbTree"
+#this_method <- "naive_bayes"
+#this_method <- "svmRadial"
+#this_method <- "cforest"
+#this_method <- "rf"
+
+# gbmGrid <-  expand.grid(n.trees = 50, interaction.depth =  c(1, 5, 9),
+#                         shrinkage = 0.01, n.minobsinnode = )
+# run model
+# head(trainDF[,predictorsNames])
+# head(trainDF[,outcomeName])
+# head(trainDF)
+#objControl <- trainControl(method='cv', number=5, returnResamp='none', classProbs = TRUE)
+objControl <- trainControl(method='repeatedcv', number=10, repeats = 10, classProbs = TRUE, 
+                           sampling = "up")#, summaryFunction = twoClassSummary)
+
+gbmGrid <- expand.grid(interaction.depth = c(1, 5, 9),
+                       n.trees = (1:30)*50, shrinkage = 0.1, 
+                       n.minobsinnode = 20)
+
+objModel <- train(trainDF[, predictorsNames], trainDF[, outcomeName], method = this_method, trControl = objControl,
+                  tuneGrid = gbmGrid, metric = "logLoss")
+
+#objModel <- train(trainDF[, predictorsNames], trainDF[, outcomeName], method = this_method)
+#trainDF2 <- trainDF[, which(colnames(trainDF) != "Class")]
+# objModel <- caret::train(Group ~ .,
+#              data = trainDF2,
+#              method = this_method,
+#              #preProcess = c("scale", "center"),
+#              trControl = objControl)
+
+#
+varImp(objModel,scale=T)
+# probabilities ("prob") or integer ("raw")
+predictions <- predict(object=objModel, testDF[,predictorsNames], type='raw') #type='prob')
+print(postResample(pred=predictions, obs=as.factor(testDF[,outcomeName])))  
+
+#head(predictions)
+x <- confusionMatrix(predictions, testDF[, outcomeName])
+confmat <- x$table
+confmat <- round(confmat %*% solve(diag(colSums(confmat))), 3)
+confmat <- as.table(confmat)
+colnames(confmat) <- rownames(confmat)
+names(dimnames(confmat))[2] <- "Reference"
+print(confmat)
+print(x$table)
+class(confmat)
+df_plot <- as.data.frame(confmat)
+gg <- ggplot(df_plot) + geom_tile(aes(x = Prediction, y = Reference, fill = Freq))
+gg <- gg + scale_fill_gradient2(low = muted("green"), high = muted("blue"))
+gg
+
+
+#=======
+
+# regrsrs <- paste(this_gene_lc_stem, these_varis[ind[7]], paste(cntrl_vars, collapse = " + "), sep = " + ")
+# this_formula <- paste("loss", "~", regrsrs)
+# linmod <- lm(this_formula, data = df)
+# summary(linmod)
+# this_formula <- paste("gain", "~", regrsrs)
+# linmod <- lm(this_formula, data = df)
+# summary(linmod)
+# this_formula <- paste("neutral", "~", regrsrs)
+# linmod <- lm(this_formula, data = df)
+# summary(linmod)
+# this_formula <- paste("switch", "~", regrsrs)
+# linmod <- lm(this_formula, data = df)
+# summary(linmod)
+# this_formula <- paste("inconclus", "~", regrsrs)
+# linmod <- lm(this_formula, data = df)
+# summary(linmod)
+# #--
+# this_formula <- paste("driver", "~", regrsrs)
+# linmod <- lm(this_formula, data = df)
+# summary(linmod)
+# this_formula <- paste("passeng", "~", regrsrs)
+# linmod <- lm(this_formula, data = df)
+# summary(linmod)
+
+#=======================================================
+
+
+
+
+
+
+
+# 1 Likely Loss-of-function
+# 2 Likely Gain-of-function
+# 3 Neutral
+# 4 Loss-of-function
+# 5 Likely Neutral
+# 6 Inconclusive
+# 7 Gain-of-function
+# 8 Likely Switch-of-function
+# 9 Switch-of-function
+
+# group1 <- c(1, 4, 9)
+# group2 <- c(8)
+# group3 <- c(3)
+# group4 <- c(2, 7)
+# group5 <- c(5, 6)
+
+group1 <- c(1, 4, 8, 9)
+group2 <- c(2, 3, 5, 6, 7)
+
+
+df_mod$Group <- NA
+df_mod$Group[(df_mod$Class %in% group1)] <- 1
+df_mod$Group[(df_mod$Class %in% group2)] <- 2
+# df_mod$Group[(df_mod$Class %in% group3)] <- 3
+# df_mod$Group[(df_mod$Class %in% group4)] <- 4
+# df_mod$Group[(df_mod$Class %in% group5)] <- 5
+#which(is.na(df_mod$Group))
+
+
+
+
+df_mod$Class <- make.names(df_mod$Class)
+df_mod$Class <- as.factor(as.character(df_mod$Class))
+
+df_mod$Group <- make.names(df_mod$Group)
+df_mod$Group <- as.factor(as.character(df_mod$Group))
+
+
+
+outcomeName <- "Group"
+#outcomeName <- "Class"
+
+# one-hot-encoding categorical features
+ohe_feats = c("Gene", "Variation")
+dummies <- dummyVars(~ Gene + Variation, data = df_mod)
+df_mod_ohe <- as.data.frame(predict(dummies, newdata = df_mod))
+df_mod_ohe <- cbind(df_mod[,-c(which(colnames(df_mod) %in% ohe_feats))],df_mod_ohe)
+
+#predictorsNames <- setdiff(colnames(df_mod), c("ID", "IDtxt", "Class", "Group", "Gene", "Variation"))
+predictorsNames <- setdiff(colnames(df_mod_ohe), c("ID", "IDtxt", "Class", "Group"))
+
+
+set.seed(1234)
+splitIndex <- createDataPartition(df_mod_ohe[,outcomeName], p = .5, list = FALSE, times = 1)
+# trainDF <- df_mod[ splitIndex,]
+# testDF  <- df_mod[-splitIndex,]
+trainDF <- df_mod_ohe[ splitIndex,]
+testDF  <- df_mod_ohe[-splitIndex,]
+
+#trainDF <- df
+
+
+# library(randomForest)
+# out_rf <- randomForest(trainDF[,predictorsNames])
+# str(out_rf)
+# out_rf$importance
+# MDSplot(out_rf, trainDF[,outcomeName])
+# class(out_rf)
+
+
+
+
+#this_method <- "glmnet"
+#this_method <- "glm"
+#this_method <- "nb"
+this_method <- "gbm" #good
+#this_method <- "xgbLinear" #better
+#this_method <- "xgbTree"
+#this_method <- "naive_bayes"
+#this_method <- "svmRadial"
+#this_method <- "cforest"
+#this_method <- "rf"
+
+# gbmGrid <-  expand.grid(n.trees = 50, interaction.depth =  c(1, 5, 9),
+#                         shrinkage = 0.01, n.minobsinnode = )
+# run model
+# head(trainDF[,predictorsNames])
+# head(trainDF[,outcomeName])
+# head(trainDF)
+#objControl <- trainControl(method='cv', number=5, returnResamp='none', classProbs = TRUE)
+objControl <- trainControl(method='cv', number=10, repeats = 10, classProbs = TRUE, summaryFunction = twoClassSummary)
+
+gbmGrid <- expand.grid(interaction.depth = c(1, 5, 9),     
+                       n.trees = (1:30)*50, shrinkage = 0.1, 
+                       n.minobsinnode = 20)
+
+objModel <- train(trainDF[, predictorsNames], trainDF[, outcomeName], method = this_method, trControl = objControl,
+                  tuneGrid = gbmGrid, metric = "logLoss")
+#
+varImp(objModel,scale=T)
+# probabilities ("prob") or integer ("raw")
+predictions <- predict(object=objModel, testDF[,predictorsNames], type='raw') #type='prob')
+print(postResample(pred=predictions, obs=as.factor(testDF[,outcomeName])))  
+
+#head(predictions)
+x <- confusionMatrix(predictions, testDF[, outcomeName])
+confmat <- x$table
+confmat <- round(confmat %*% solve(diag(colSums(confmat))), 4)
+confmat <- as.table(confmat)
+colnames(confmat) <- rownames(confmat)
+names(dimnames(confmat))[2] <- "Reference"
+class(confmat)
+df_plot <- as.data.frame(confmat)
+gg <- ggplot(df_plot) + geom_tile(aes(x = Prediction, y = Reference, fill = Freq))
+gg <- gg + scale_fill_gradient2(low = muted("green"), high = muted("blue"))
+gg
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#doc_len <- c()
+n_occur_gene_list <- list()
+n_occur_gene_list <- lapply(1:7, function(i){
+  this_doc <- corpus[[i]][1]
+  #doc_len[i] <- sapply(gregexpr("[[:alpha:]]+", this_doc), function(x) sum(x > 0))
+  n_occur_gene_vec <- lapply(1:n_genes, function(j){
+    this_symb <- uniq_genes_lc_stem[j]
+    this_name <- uniq_genes_name_lc_stem[j]
+    q <- length(as.integer(gregexpr(pattern = this_symb, this_doc)[[1]]))
+    n_symb <- ifelse(q %in% c(-1, 1), 0, q)
+    ind <- which(X$Gene_lc_stem == this_symb)
+    this_name <- unique(X$Gene_name_lc_stem[ind])
+    if(length(grep(",", this_name)) > 0){
+      this_name1 <- gsub(",.*", "", this_name)
+      this_name2 <- gsub(".*, ", "", this_name)
+      q <- length(as.integer(gregexpr(pattern = this_name1, this_doc)[[1]])) +
+        length(as.integer(gregexpr(pattern = this_name2, this_doc)[[1]]))
+      n_name <- ifelse(q %in% c(-1, 1), 0, q)
+    }else{
+      q <- length(as.integer(gregexpr(pattern = this_name, this_doc)[[1]]))
+      n_name <- ifelse(q %in% c(-1, 1), 0, q)
+    }
+    n_symb_alt <- 0
+    if(F %in% is.na(X$Gene_symb_alt[ind]))
+    {
+      this_symb_alt <- unique(X$Gene_symb_alt_lc_stem[ind])
+      q <- length(as.integer(gregexpr(pattern = this_symb_alt, this_doc)[[1]]))
+      n_symb_alt <- ifelse(q %in% c(-1, 1), 0, q)
+    }
+    n_name_alt <- 0
+    if(F %in% is.na(X$Gene_name_alt[ind]))
+    {
+      this_name_alt <- unique(X$Gene_name_alt_lc_stem[ind])
+      if(length(grep(",", this_name_alt)) > 0){
+        this_name_alt1 <- gsub(",.*", "", this_name_alt)
+        this_name_alt2 <- gsub(".*, ", "", this_name_alt)
+        q <- length(as.integer(gregexpr(pattern = this_name_alt1, this_doc)[[1]])) +
+          length(as.integer(gregexpr(pattern = this_name_alt2, this_doc)[[1]]))
+        n_name_alt <- ifelse(q %in% c(-1, 1), 0, q)
+      }else{
+        q <- length(as.integer(gregexpr(pattern = this_name_alt, this_doc)[[1]]))
+        n_name_alt <- ifelse(q %in% c(-1, 1), 0, q)
+      }
+      
+    }
+    n_occur_gene <- n_symb + n_symb_alt + n_name + n_name_alt
+    return(n_occur_gene)
+    #return(n_symb)
+  })
+  print(i)
+  return(n_occur_gene_vec)
+  gc(reset = TRUE)
+  
+})
+
+df_n_occur_gene <- as.data.frame(do.call(cbind, n_occur_gene_list))
