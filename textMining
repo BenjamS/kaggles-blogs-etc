@@ -1,4 +1,4 @@
-#setwd("D:/OneDrive - CGIAR/Documents")
+setwd("D:/OneDrive - CGIAR/Documents")
 options(warn = -1); options(scipen = 999)
 # pkgs <- c("car", "plyr", "caret", "MLmetrics", 
 #           "reshape2", "ggplot2", "gridExtra", "scales",
@@ -23,98 +23,11 @@ rm(pkgs, pkg)
 gc()
 
 #-----------------------------------------
-dir <- "CityofLA/Job Bulletins/"
-#file_names <- list.files(dir)
-# file_names_for_labeling  <- str_replace_all(string = file_names, pattern = "\\s\\([:digit:]\\)\\.txt", replacement = "")
-# titles_and_codes <- str_extract_all(string = file_names_for_labeling,
-#                           pattern = "(tins/)(311)?([:print:])+([:digit:]+[:space:]){1}") %>% 
-  # str_squish() %>% 
-  # str_replace_all(string = ., pattern = "tins/", replacement = "") %>% 
-  # str_replace_all(string = ., pattern = "_ ", replacement = "_") %>%
-  # str_replace_all(string = ., pattern = " ", replacement = "_")
+#dir <- "CityofLA/Job Bulletins/"
+dir <- "D:/OneDrive - CGIAR/Documents/kaggle/CityofLA/Job Bulletins/"
 
-
-#--
-# ind_check <- which(titles_and_codes == "character(0)")
-# file_names[ind_check]
-# str_extract_all(string = file_names[ind_check[2]],
-#                 pattern = "(tins/)(311)?([:print:])+([:digit:]+[:space:]){1}")
-# 
-# xx <- gsub(".txt", "", file_names[2])
-# xx <- str_split(xx, " ")
-# nums <- parse_number(unlist(xx))
-# nums <- nums[which(!is.na(nums))]
-# class(nums)
-
-
-
-#file_names <- paste0(dir, file_names)
-#file_contents <- map(this_file, readLines)
-
-# this_file_name <- file_names[2]
-# txt <- readLines(this_file_name)
-# txt <- as.character(unlist(txt))
-# ind_rm <- which(txt == "")
-# txt <- txt[-ind_rm]
 # #--
-# bulletin_structure <- function(file_name){
-#   txt <- readLines(file_name)
-#   txt <- as.character(unlist(txt))
-#   txt <- str_trim(txt)
-#   ind_rm <- which(txt == "")
-#   txt <- txt[-ind_rm]
-#   section_headings <- txt[grep("^[A-Z :/\t]+$", txt)]
-#   section_headings <- str_trim(section_headings)
-#   ind_examCaveat1 <- grep("THIS EXAMINATION IS TO BE GIVEN", section_headings)
-#   if(length(ind_examCaveat1) != 0){
-#     ind_examCaveat2 <- grep("DEPARTMENTAL PROMOTIONAL|DEPARMENTAL PROMOTIONAL|OPEN COMPETITIVE BASIS", section_headings)
-#     str_examCaveat1 <- section_headings[ind_examCaveat1]
-#     str_examCaveat2 <- section_headings[ind_examCaveat2]
-#     str_examCaveat <- paste(str_examCaveat1, str_examCaveat2)
-#     section_headings[ind_examCaveat1] <- str_examCaveat
-#     section_headings <- section_headings[-ind_examCaveat2]
-#   }
-#   n_headings <- length(section_headings)
-#   #return(section_headings)
-#   #return(n_headings)
-#   # has_reqSection <- ifelse(length(grep("REQUIREMENT", section_headings)) != 0, 1, 0)
-#   # return(has_reqSection)
-#  #  ind_Reqs <- grep("REQUIREMENT", section_headings)
-#  #  ind_procNotes <- grep("PROCESS NOTE", section_headings)
-#  #  if(length(ind_procNotes) != 0){
-#  #    dif <- ind_procNotes - ind_Reqs
-#  #  }else{
-#  #    dif <- NA
-#  #  }
-#  # return(dif)
-#   out <- ifelse("DUTIES" %in% section_headings, 1, 0)
-#   return(out)
-# }
-# xx <- map(file_names, bulletin_structure)
-# xx <- unlist(xx)
-# # class(xx)
-# # hist(xx)
-# ind <- which(xx == 0)
-# file_names[ind]
-# txt <- readLines(file_names[ind[1]])
-# txt <- as.character(unlist(txt))
-# ind_rm <- c(which(txt == ""), which(txt == "   "))
-# txt <- txt[-ind_rm]
-# section_headings <- txt[grep("^[A-Z :/\t]+$", txt)]
-# section_headings <- str_trim(section_headings)
-# ind_examCaveat1 <- grep("THIS EXAMINATION IS TO BE GIVEN", section_headings)
-# if(length(ind_examCaveat1 != 0)){
-#   ind_examCaveat2 <- grep("DEPARTMENTAL PROMOTIONAL|DEPARMENTAL PROMOTIONAL|OPEN COMPETITIVE BASIS", section_headings)
-#   str_examCaveat1 <- section_headings[ind_examCaveat1]
-#   str_examCaveat2 <- section_headings[ind_examCaveat2]
-#   str_examCaveat <- paste(str_examCaveat1, str_examCaveat2)
-#   section_headings[ind_examCaveat1] <- str_examCaveat
-#   section_headings <- section_headings[-ind_examCaveat2]
-# }
-# section_headings
 #------------------------------------------------------
-#file_name <- "CityofLA/Job Bulletins/Vocational Worker  DEPARTMENT OF PUBLIC WORKS.txt"
-#"CityofLA/Job Bulletins/SENIOR REAL ESTATE OFFICER 1961 0413018 (2).txt"  "ANNUALSALARY"
 #"CityofLA/Job Bulletins/Vocational Worker  DEPARTMENT OF PUBLIC WORKS.txt"
 file_names <- list.files(dir)
 file_name <- file_names[1]
@@ -127,6 +40,20 @@ file_name <- file_names[1]
 #file_name <- "SENIOR BUILDING OPERATING ENGINEER 5925 011615 (1).txt"
 #file_name <- "CITY PLANNING ASSOCIATE 7941 110317.txt"
 #file_name <- "SENIOR COMPUTER OPERATOR 1428 102017.txt"
+#file_name <- "UTILITY SERVICES MANAGER 9106 110416.txt"
+#file_name <- "BOILERMAKER 3735 110714.txt"
+#-----------------------------------------------
+# Notes:
+#"CHIEF CLERK POLICE 1219 061215.txt" is old duplicate of "CHIEF CLERK POLICE 1249 083118.txt". Note file name class code
+# older (excluded) differs from that inside file. Assuming the one inside is correct.
+#"SENIOR UTILITY SERVICES SPECIALIST 3753 121815 (1).txt") is old duplicate of 
+#"SENIOR UTILITY SERVICES SPECIALIST 3573 113018.txt". Note file name class code
+# in newer (kept) file differs from that inside file. Assuming the one inside file is correct.
+# No hard return between "Class code" and "Open date" lines, making extraction of this info difficult:
+#"MARINE ENVIRONMENTAL SUPERVISOR 9433 071114 (1).txt"
+#"SENIOR COMPUTER OPERATOR 1428 102017.txt"
+#"SUPERVISING CRIMINALIST 2235 030416.txt" 
+#-----------------------------------------------
 parse_bulletin <- function(file_name, dir){
   print(file_name)
   txt <- readLines(paste0(dir, file_name))
@@ -139,11 +66,11 @@ parse_bulletin <- function(file_name, dir){
   section_headings <- str_trim(section_headings)
   #---------------------------------------------
   # Job class title
-  job_class_title <- txt[1]
-  # job_class_title <- gsub("[0-9\\.txt]|REV|REVISED", "", file_name)
-  # job_class_title <- str_trim(job_class_title)
+  # job_class_title <- txt[1]
+  job_class_title <- gsub("[0-9\\(\\)\\.txt]|REV|REVISED", "", file_name)
+  job_class_title <- str_trim(job_class_title)
   #---------------------------------------------
-  # Job class number
+  # Job class number (taken from inside file)
   job_class_no <- txt[grep("Class code", txt, ignore.case = T)[1]]
   job_class_no <- gsub("[^0-9]", "", job_class_no)
   if(nchar(job_class_no) > 4){job_class_no <- substr(job_class_no, 1, 4)} #"MARINE ENVIRONMENTAL SUPERVISOR" "SENIOR COMPUTER OPERATOR 1428 102017.txt" "SUPERVISING CRIMINALIST 2235 030416.txt" 
@@ -157,6 +84,62 @@ parse_bulletin <- function(file_name, dir){
   ind_reqMinquals_end <- ind_reqMinquals_end[1]
   str_reqMinquals <- txt[ind_reqMinquals_start:ind_reqMinquals_end]
   str_reqMinquals <- paste(str_reqMinquals, collapse = " ")
+  #--
+  # REQUIREMENT SET ID
+  #--
+  # REQUIREMENT SUBSET ID
+  #--
+  # EDUCATION YEARS
+  # grep("college|university", str_reqMinquals)
+  # grep("degree in", str_reqMinquals)
+  #--
+  # SCHOOL TYPE
+  #--
+  # EDUCATION MAJOR
+  #--
+  # EXPERIENCE LENGTH
+  #--
+  # FULL TIME PART TIME
+  #--
+  # EXP JOB CLASS TITLE
+  #--
+  # EXP_JOB_CLASS_ALT_RESP
+  #--
+  # EXP_JOB_CLASS_FUNCTION
+  #--
+  # COURSE_COUNT
+  #--
+  # COURSE_LENGTH
+  #--
+  # COURSE_SUBJECT
+  #--
+  # MISC_COURSE_DETAILS
+  #--
+  # DRIVERS_LICENSE_REQ
+  #--
+  # DRIV_LIC_TYPE
+  #--
+  # ADDTL_LIC
+  #--
+  # EXAM_TYPE
+  INT_DEPT_PROM <- ifelse(sum(str_detect(section_headings, "INTERDEPARTMENTAL PROMOTIONAL|INTERDEPARMENTAL PROMOTIONAL")) == 1, 1, 0)
+  DEPT_PROM <- ifelse(sum(str_detect(section_headings, "DEPARTMENTAL PROMOTIONAL|DEPARMENTAL PROMOTIONAL")) == 1, 1, 0)
+  OPEN <- ifelse(sum(str_detect(section_headings, "OPEN COMPETITIVE")) == 1, 1, 0)
+  OPEN_INT_PROM <- ifelse(INT_DEPT_PROM == 1 & OPEN == 1, 1, 0)
+  if(DEPT_PROM == 1){
+    exam_type <- "DEPT_PROM"
+  }else{
+    if(OPEN_INT_PROM == 1){
+      exam_type <- "OPEN_INT_PROM"
+    }else{
+      if(INT_DEPT_PROM == 1){exam_type <- "INT_DEPT_PROM"}
+      if(OPEN == 1){exam_type <- "OPEN"}
+    }
+  }
+  #--
+  # ENTRY_SALARY_GEN
+  #--
+  # ENTRY_SALARY_DWP
   #---------------------------------------------
   # Duties
   ind_Duties_start <- grep("DUTIES", txt) + 1
@@ -179,58 +162,54 @@ parse_bulletin <- function(file_name, dir){
   xx <- txt[ind_openDate[1]]
   open_date <- gsub("\\b[^0-9-]", "", xx)
   if(nchar(open_date) > 8){open_date <- substr(open_date, 5, 12)} #"MARINE ENVIRONMENTAL SUPERVISOR" "SENIOR COMPUTER OPERATOR 1428 102017.txt" "SUPERVISING CRIMINALIST 2235 030416.txt" 
-  #--
+  #---------------------------------------------
   # Salary
   ind_annSalary <- grep("ANNUAL SALARY|ANNUALSALARY", txt) + 1
   str_annSalary <- txt[ind_annSalary]
   #--
   # Salary min and max (all ranges)
-  pay_ranges <- gsub("\\(.*\\)", "", str_annSalary)
+  
+  pay_ranges <- gsub("[\\(.*\\),;\\$[:space:]]", "", str_annSalary) # EXHIBIT PREPARATOR has parens in salary section
   pay_ranges <- str_trim(pay_ranges)
-  pay_ranges <- unlist(str_split(pay_ranges, " "))
-#  pay_ranges <- gsub("\\(.*\\)", "", pay_ranges) # EXHIBIT PREPARATOR
+  pay_ranges <- unlist(str_split(pay_ranges, "[^0-9]"))
   ind_rm <- which(pay_ranges == "")
   if(length(ind_rm) != 0){pay_ranges <- pay_ranges[-ind_rm]}
-  pay_ranges <- pay_ranges[grep("[0-9]", pay_ranges)]
-  pay_ranges <- paste(pay_ranges, collapse = "") #"EQUIPMENT REPAIR SUPERVISOR 3746 012717.txt"
-  pay_ranges <- unlist(str_split(pay_ranges, "\\$"))
-  pay_ranges <- pay_ranges[-which(pay_ranges == "")]
-  pay_ranges <- as.numeric(gsub("[\\$, ;.\\*]", "", pay_ranges))
+  if(length(pay_ranges) == 1){if(nchar(pay_ranges) == 8){pay_ranges <- gsub(".{2}$", "", pay_ranges)}} # "BOILERMAKER 3735 110714.txt"
+  pay_ranges <- as.numeric(pay_ranges)
   if(length(pay_ranges) > 0){
     annSalary_min <- min(pay_ranges, na.rm = T)
     annSalary_max <- max(pay_ranges, na.rm = T)
   }else{
-      annSalary_min <- NA
-      annSalary_max <- NA
+    annSalary_min <- NA
+    annSalary_max <- NA
   }
   #--
   # Salary growth potential
-    if(length(pay_ranges) > 1){
-      n_pay_ranges <- length(pay_ranges) / 2
-      growth_potential <- diff(pay_ranges)[seq(1, 2 * n_pay_ranges - 1, 2)]
-      growth_potential_all <- paste(as.character(growth_potential), collapse = ", ")
-      growth_potential_mean <- mean(growth_potential)
-    }
-    if(length(pay_ranges) == 1){ # flat-rated case
-      n_pay_ranges <- 0
-      growth_potential <- "0"
-      growth_potential_all <- "0"
-      growth_potential_mean <- 0
-    }
-    if(length(pay_ranges) == 0){ # "AIRPORT POLICE SPECIALIST 3236 063017 (2).txt"
-      n_pay_ranges <- NA
-      growth_potential <- "Not reported"
-      growth_potential_all <- "Not reported"
-      growth_potential_mean <- NA
-    }
-  #--
-  # grep("college|university", str_reqMinquals)
-  # grep("degree in", str_reqMinquals)
+  if(length(pay_ranges) > 1){
+    n_pay_ranges <- length(pay_ranges) / 2
+    growth_potential <- diff(pay_ranges)[seq(1, 2 * n_pay_ranges - 1, 2)]
+    growth_potential_all <- paste(as.character(growth_potential), collapse = ", ")
+    growth_potential_mean <- mean(growth_potential)
+  }
+  if(length(pay_ranges) == 1){ # flat-rated cases
+    n_pay_ranges <- 0
+    growth_potential <- "0"
+    growth_potential_all <- "0"
+    growth_potential_mean <- 0
+  }
+  if(length(pay_ranges) == 0){ # "AIRPORT POLICE SPECIALIST 3236 063017 (2).txt"
+    n_pay_ranges <- NA
+    growth_potential <- "Not reported"
+    growth_potential_all <- "Not reported"
+    growth_potential_mean <- NA
+  }
+  #=============================================
   df_out <- data.frame(FILE_NAME = file_name,
                        JOB_CLASS_TITLE = job_class_title,
                        JOB_CLASS_NO = job_class_no,
                        Requirements = str_reqMinquals,
                        Duties = str_Duties,
+                       EXAM_TYPE = exam_type,
                        OPEN_DATE = open_date,
                        Annual_Salary = str_annSalary,
                        Annual_Salary_Min = annSalary_min,
@@ -241,7 +220,10 @@ parse_bulletin <- function(file_name, dir){
   return(df_out)
 }
 special_case <- "Vocational Worker  DEPARTMENT OF PUBLIC WORKS.txt"
+duplicate_cases <- c("CHIEF CLERK POLICE 1219 061215.txt",# Old duplicate of CHIEF CLERK POLICE 1249 083118.txt with erroneous class code in file name (but correct inside file)
+                     "SENIOR UTILITY SERVICES SPECIALIST 3753 121815 (1).txt") #Old duplicate of "SENIOR UTILITY SERVICES SPECIALIST 3573 113018.txt" with class code in file name
 file_names <- list.files(dir)
+file_names <- file_names[-which(file_names %in% duplicate_cases)]
 ind_rm <- which(file_names == special_case)
 file_names <- file_names[-ind_rm]
 list_df <- map(file_names, parse_bulletin, dir)
@@ -256,7 +238,8 @@ df$Requirements <- as.character(df$Requirements)
 df$NUM_REQS <- str_count(df$Requirements, "\\b[0-9]\\.")
 df$NUM_REQS_SUB <- str_count(df$Requirements, "\\b[a-z]\\.")
 
-df$FILE_NAME[which(duplicated(df$FILE_NAME))]
+df$FILE_NAME[which(duplicated(df$JOB_CLASS_TITLE))]
+df$JOB_CLASS_TITLE[which(duplicated(df$JOB_CLASS_TITLE))]
 
 hist(as.numeric(df$JOB_CLASS_NO))
 df$JOB_CLASS_TITLE[which(as.numeric(df$JOB_CLASS_NO) > 9999)]
@@ -267,7 +250,7 @@ df$OPEN_DATE[which(as.numeric(df$JOB_CLASS_NO) > 9999)]
 hist(df$NUM_REQS)
 hist(df$NUM_REQS_SUB)
 df$Requirements[which(df$NUM_REQS_SUB == 10)]
-df$File_Name[which(df$NUM_REQS_SUB == 10)]
+df$FILE_NAME[which(df$NUM_REQS_SUB == 10)]
 
 
 
@@ -276,8 +259,10 @@ u <- df$Growth_Potential_AVG
 length(which(u < 0))
 View(df[which(u < 0), ])
 View(df[which(u > 10^5), ])
-hist(df$Growth_Potential_AVG[u >= 0 & u < 10^5])
-
+hist(df$Growth_Potential_AVG[u >= 0])
+df$FILE_NAME[which(df$Annual_Salary_Max > 10^6)]
+which(is.integer(df$Number_Pay_Ranges))
+hist(df$Annual_Salary_Min)
 
 #--Special case
 
@@ -889,7 +874,7 @@ fviz_ca_biplot(res)
 max_graph <- 4
 in_mat <- as.matrix(df_dtm[, -1])
 n_ts <- ncol(in_mat)
-  
+
 e <- eigen(cormat)
 eig_vectors <- e$vectors
 lam_cor <- e$values
@@ -2572,3 +2557,86 @@ n_occur_gene_list <- lapply(1:7, function(i){
 })
 
 df_n_occur_gene <- as.data.frame(do.call(cbind, n_occur_gene_list))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# bulletin_structure <- function(file_name){
+#   txt <- readLines(file_name)
+#   txt <- as.character(unlist(txt))
+#   txt <- str_trim(txt)
+#   ind_rm <- which(txt == "")
+#   txt <- txt[-ind_rm]
+#   section_headings <- txt[grep("^[A-Z :/\t]+$", txt)]
+#   section_headings <- str_trim(section_headings)
+#   ind_examCaveat1 <- grep("THIS EXAMINATION IS TO BE GIVEN", section_headings)
+#   if(length(ind_examCaveat1) != 0){
+#     ind_examCaveat2 <- grep("DEPARTMENTAL PROMOTIONAL|DEPARMENTAL PROMOTIONAL|OPEN COMPETITIVE BASIS", section_headings)
+#     str_examCaveat1 <- section_headings[ind_examCaveat1]
+#     str_examCaveat2 <- section_headings[ind_examCaveat2]
+#     str_examCaveat <- paste(str_examCaveat1, str_examCaveat2)
+#     section_headings[ind_examCaveat1] <- str_examCaveat
+#     section_headings <- section_headings[-ind_examCaveat2]
+#   }
+#   n_headings <- length(section_headings)
+#   #return(section_headings)
+#   #return(n_headings)
+#   # has_reqSection <- ifelse(length(grep("REQUIREMENT", section_headings)) != 0, 1, 0)
+#   # return(has_reqSection)
+#  #  ind_Reqs <- grep("REQUIREMENT", section_headings)
+#  #  ind_procNotes <- grep("PROCESS NOTE", section_headings)
+#  #  if(length(ind_procNotes) != 0){
+#  #    dif <- ind_procNotes - ind_Reqs
+#  #  }else{
+#  #    dif <- NA
+#  #  }
+#  # return(dif)
+#   out <- ifelse("DUTIES" %in% section_headings, 1, 0)
+#   return(out)
+# }
+# xx <- map(file_names, bulletin_structure)
+# xx <- unlist(xx)
+# # class(xx)
+# # hist(xx)
+# ind <- which(xx == 0)
+# file_names[ind]
+# txt <- readLines(file_names[ind[1]])
+# txt <- as.character(unlist(txt))
+# ind_rm <- c(which(txt == ""), which(txt == "   "))
+# txt <- txt[-ind_rm]
+# section_headings <- txt[grep("^[A-Z :/\t]+$", txt)]
+# section_headings <- str_trim(section_headings)
+# ind_examCaveat1 <- grep("THIS EXAMINATION IS TO BE GIVEN", section_headings)
+# if(length(ind_examCaveat1 != 0)){
+#   ind_examCaveat2 <- grep("DEPARTMENTAL PROMOTIONAL|DEPARMENTAL PROMOTIONAL|OPEN COMPETITIVE BASIS", section_headings)
+#   str_examCaveat1 <- section_headings[ind_examCaveat1]
+#   str_examCaveat2 <- section_headings[ind_examCaveat2]
+#   str_examCaveat <- paste(str_examCaveat1, str_examCaveat2)
+#   section_headings[ind_examCaveat1] <- str_examCaveat
+#   section_headings <- section_headings[-ind_examCaveat2]
+# }
+# section_headings
