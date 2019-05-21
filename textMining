@@ -16,7 +16,7 @@ options(warn = -1); options(scipen = 999)
 pkgs <- c("tidyverse", "tidytext", "FactoMineR", "factoextra", "readr", "tm")
 
 for (pkg in pkgs) {
-  #if (! (pkg %in% rownames(installed.packages()))){install.packages(pkg)}
+  if (! (pkg %in% rownames(installed.packages()))){install.packages(pkg)}
   library(pkg, character.only = TRUE)
 }
 rm(pkgs, pkg)
@@ -24,7 +24,7 @@ gc()
 
 #-----------------------------------------
 dir <- "CityofLA/Job Bulletins/"
-file_names <- list.files(dir)
+#file_names <- list.files(dir)
 # file_names_for_labeling  <- str_replace_all(string = file_names, pattern = "\\s\\([:digit:]\\)\\.txt", replacement = "")
 # titles_and_codes <- str_extract_all(string = file_names_for_labeling,
 #                           pattern = "(tins/)(311)?([:print:])+([:digit:]+[:space:]){1}") %>% 
@@ -126,6 +126,7 @@ file_name <- file_names[1]
 #file_name <- "AIRPORT POLICE SPECIALIST 3236 063017 (2).txt"
 #file_name <- "SENIOR BUILDING OPERATING ENGINEER 5925 011615 (1).txt"
 #file_name <- "CITY PLANNING ASSOCIATE 7941 110317.txt"
+#file_name <- "SENIOR COMPUTER OPERATOR 1428 102017.txt"
 parse_bulletin <- function(file_name, dir){
   print(file_name)
   txt <- readLines(paste0(dir, file_name))
@@ -133,11 +134,51 @@ parse_bulletin <- function(file_name, dir){
   txt <- str_trim(txt)
   ind_rm <- which(txt == "")
   txt <- txt[-ind_rm]
+  ind_headings <- grep("^[A-Z :/,\t]+$", txt)
+  section_headings <- txt[ind_headings]
+  section_headings <- str_trim(section_headings)
+  #---------------------------------------------
+  # Job class title
+  job_class_title <- txt[1]
+  # job_class_title <- gsub("[0-9\\.txt]|REV|REVISED", "", file_name)
+  # job_class_title <- str_trim(job_class_title)
+  #---------------------------------------------
+  # Job class number
+  job_class_no <- txt[grep("Class code", txt, ignore.case = T)[1]]
+  job_class_no <- gsub("[^0-9]", "", job_class_no)
+  if(nchar(job_class_no) > 4){job_class_no <- substr(job_class_no, 1, 4)} #"MARINE ENVIRONMENTAL SUPERVISOR" "SENIOR COMPUTER OPERATOR 1428 102017.txt" "SUPERVISING CRIMINALIST 2235 030416.txt" 
+  #---------------------------------------------
+  # Requirements
+  ind_reqMinquals_start <- grep("REQUIREMENT", txt) + 1
+  str_reqMinquals_end <- section_headings[grep("REQUIREMENT", section_headings) + 1]
+  ind_reqMinquals_end <- grep(str_reqMinquals_end, txt) - 1
+  ind_rm <- which(ind_reqMinquals_end < ind_reqMinquals_start)
+  if(length(ind_rm) != 0){ind_reqMinquals_end <- ind_reqMinquals_end[-ind_rm]}
+  ind_reqMinquals_end <- ind_reqMinquals_end[1]
+  str_reqMinquals <- txt[ind_reqMinquals_start:ind_reqMinquals_end]
+  str_reqMinquals <- paste(str_reqMinquals, collapse = " ")
+  #---------------------------------------------
+  # Duties
+  ind_Duties_start <- grep("DUTIES", txt) + 1
+  if(length(ind_Duties_start) != 0){
+    str_Duties_end <- section_headings[grep("DUTIES", section_headings) + 1]
+    ind_Duties_end <- grep(str_Duties_end, txt) - 1
+    ind_rm <- which(ind_Duties_end < ind_Duties_start)
+    if(length(ind_rm) != 0){
+      ind_Duties_end <- ind_Duties_end[-ind_rm]
+    }
+    ind_Duties_end <- ind_Duties_end[1]
+    str_Duties <- txt[ind_Duties_start:ind_Duties_end]
+    str_Duties <- paste(str_Duties, collapse = " ")
+  }else{
+    str_Duties <- ""
+  }
+  #---------------------------------------------
+  # Opening date
   ind_openDate <- grep("Open Date", txt, ignore.case = T)
   xx <- txt[ind_openDate[1]]
-  xx <- unlist(str_split(xx, " "))
-  ind <- grep("[0-9-]", xx)
-  str_openDate <- xx[ind]
+  open_date <- gsub("\\b[^0-9-]", "", xx)
+  if(nchar(open_date) > 8){open_date <- substr(open_date, 5, 12)} #"MARINE ENVIRONMENTAL SUPERVISOR" "SENIOR COMPUTER OPERATOR 1428 102017.txt" "SUPERVISING CRIMINALIST 2235 030416.txt" 
   #--
   # Salary
   ind_annSalary <- grep("ANNUAL SALARY|ANNUALSALARY", txt) + 1
@@ -182,42 +223,15 @@ parse_bulletin <- function(file_name, dir){
       growth_potential_all <- "Not reported"
       growth_potential_mean <- NA
     }
-
-  #--
-  ind_headings <- grep("^[A-Z :/,\t]+$", txt)
-  section_headings <- txt[ind_headings]
-  section_headings <- str_trim(section_headings)
-  #--
-  ind_Duties_start <- grep("DUTIES", txt) + 1
-  if(length(ind_Duties_start) != 0){
-    str_Duties_end <- section_headings[grep("DUTIES", section_headings) + 1]
-    ind_Duties_end <- grep(str_Duties_end, txt) - 1
-    ind_rm <- which(ind_Duties_end < ind_Duties_start)
-    if(length(ind_rm) != 0){
-      ind_Duties_end <- ind_Duties_end[-ind_rm]
-    }
-    ind_Duties_end <- ind_Duties_end[1]
-    str_Duties <- txt[ind_Duties_start:ind_Duties_end]
-    str_Duties <- paste(str_Duties, collapse = " ")
-  }else{
-    str_Duties <- ""
-  }
-  #--
-  ind_reqMinquals_start <- grep("REQUIREMENT", txt) + 1
-  str_reqMinquals_end <- section_headings[grep("REQUIREMENT", section_headings) + 1]
-  ind_reqMinquals_end <- grep(str_reqMinquals_end, txt) - 1
-  ind_rm <- which(ind_reqMinquals_end < ind_reqMinquals_start)
-  if(length(ind_rm) != 0){
-    ind_reqMinquals_end <- ind_reqMinquals_end[-ind_rm]
-  }
-  ind_reqMinquals_end <- ind_reqMinquals_end[1]
-  str_reqMinquals <- txt[ind_reqMinquals_start:ind_reqMinquals_end]
-  str_reqMinquals <- paste(str_reqMinquals, collapse = " ")
   #--
   # grep("college|university", str_reqMinquals)
   # grep("degree in", str_reqMinquals)
-  df_out <- data.frame(File_Name = file_name, Open_Date = str_openDate,
-                       Duties = str_Duties, Requirements = str_reqMinquals,
+  df_out <- data.frame(FILE_NAME = file_name,
+                       JOB_CLASS_TITLE = job_class_title,
+                       JOB_CLASS_NO = job_class_no,
+                       Requirements = str_reqMinquals,
+                       Duties = str_Duties,
+                       OPEN_DATE = open_date,
                        Annual_Salary = str_annSalary,
                        Annual_Salary_Min = annSalary_min,
                        Annual_Salary_Max = annSalary_max,
@@ -232,6 +246,32 @@ ind_rm <- which(file_names == special_case)
 file_names <- file_names[-ind_rm]
 list_df <- map(file_names, parse_bulletin, dir)
 df <- do.call(rbind, list_df)
+df$FILE_NAME <- as.character(df$FILE_NAME)
+df$JOB_CLASS_TITLE <- as.character(df$JOB_CLASS_TITLE)
+df$JOB_CLASS_NO <- as.character(df$JOB_CLASS_NO)
+df$OPEN_DATE <- as.character(df$OPEN_DATE)
+df$Annual_Salary <- as.character(df$Annual_Salary)
+df$Duties <- as.character(df$Duties)
+df$Requirements <- as.character(df$Requirements)
+df$NUM_REQS <- str_count(df$Requirements, "\\b[0-9]\\.")
+df$NUM_REQS_SUB <- str_count(df$Requirements, "\\b[a-z]\\.")
+
+df$FILE_NAME[which(duplicated(df$FILE_NAME))]
+
+hist(as.numeric(df$JOB_CLASS_NO))
+df$JOB_CLASS_TITLE[which(as.numeric(df$JOB_CLASS_NO) > 9999)]
+df$JOB_CLASS_NO[which(as.numeric(df$JOB_CLASS_NO) > 9999)]
+df$OPEN_DATE[which(as.numeric(df$JOB_CLASS_NO) > 9999)]
+
+
+hist(df$NUM_REQS)
+hist(df$NUM_REQS_SUB)
+df$Requirements[which(df$NUM_REQS_SUB == 10)]
+df$File_Name[which(df$NUM_REQS_SUB == 10)]
+
+
+
+
 u <- df$Growth_Potential_AVG
 length(which(u < 0))
 View(df[which(u < 0), ])
@@ -239,11 +279,6 @@ View(df[which(u > 10^5), ])
 hist(df$Growth_Potential_AVG[u >= 0 & u < 10^5])
 
 
-df$File_Name <- as.character(df$File_Name)
-df$Open_Date <- as.character(df$Open_Date)
-df$Annual_Salary <- as.character(df$Annual_Salary)
-df$Duties <- as.character(df$Duties)
-df$Requirements <- as.character(df$Requirements)
 #--Special case
 
 if(file_name %in% special_case){
@@ -320,14 +355,12 @@ dtm <- removeSparseTerms(dtm, 0.9)
 df_dtm <- tidy(dtm)
 df_dtm <- df_dtm %>% spread(term, count)
 df_dtm[is.na(df_dtm)] <- 0
-df_dtm$document <- file_names
+df_dtm$document <- df$JOB_CLASS_TITLE
 cormat <- cor(as.matrix(df_dtm[, -1]))
 image(cormat)
 #--
 mat_dtm <- as.matrix(df_dtm[, -1])
-doc_labels <- gsub(".txt|[0-9()]", "", file_names)
-doc_labels <- str_trim(doc_labels)
-doc_labels <- str_trunc(doc_labels, 30, ellipsis = "")
+doc_labels <- df$JOB_CLASS_TITLE #str_trunc(df$JOB_CLASS_TITLE, 100, ellipsis = "")
 ind_dup <- which(duplicated(doc_labels))
 doc_labels[ind_dup] <- paste(doc_labels[ind_dup], "(dup)")
 ind_dup <- which(duplicated(doc_labels))
