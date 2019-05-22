@@ -42,17 +42,22 @@ file_name <- file_names[1]
 #file_name <- "SENIOR COMPUTER OPERATOR 1428 102017.txt"
 #file_name <- "UTILITY SERVICES MANAGER 9106 110416.txt"
 #file_name <- "BOILERMAKER 3735 110714.txt"
+#file_name <- "ELECTRIC STATION OPERATOR  5224 070717 (3).txt"
+#file_name <- "MANAGING WATER UTILITY ENGINEER 9406 032417 REV 040417.txt"
 #-----------------------------------------------
 # Notes:
-#"CHIEF CLERK POLICE 1219 061215.txt" is old duplicate of "CHIEF CLERK POLICE 1249 083118.txt". Note file name class code
+#*"CHIEF CLERK POLICE 1219 061215.txt" is old duplicate of "CHIEF CLERK POLICE 1249 083118.txt". Note file name class code
 # older (excluded) differs from that inside file. Assuming the one inside is correct.
-#"SENIOR UTILITY SERVICES SPECIALIST 3753 121815 (1).txt") is old duplicate of 
+#*"SENIOR UTILITY SERVICES SPECIALIST 3753 121815 (1).txt") is old duplicate of 
 #"SENIOR UTILITY SERVICES SPECIALIST 3573 113018.txt". Note file name class code
 # in newer (kept) file differs from that inside file. Assuming the one inside file is correct.
-# No hard return between "Class code" and "Open date" lines, making extraction of this info difficult:
+#*No hard return between "Class code" and "Open date" lines, making extraction of this info difficult:
 #"MARINE ENVIRONMENTAL SUPERVISOR 9433 071114 (1).txt"
 #"SENIOR COMPUTER OPERATOR 1428 102017.txt"
 #"SUPERVISING CRIMINALIST 2235 030416.txt" 
+#* File called "SENIOR EXAMINER OF QUESTIONED DOCUMENTS 3231 072216 REVISED 072716.txt"
+# is actually the file "WATER UTILITY SUPERINTENDENT 3980 121418.txt" mislabeled
+#*Some files, like ELECTRIC STATION OPERATOR  5224 070717 (3).txt, have both salary ranges and flat-rated salaries
 #-----------------------------------------------
 parse_bulletin <- function(file_name, dir){
   print(file_name)
@@ -164,44 +169,62 @@ parse_bulletin <- function(file_name, dir){
   if(nchar(open_date) > 8){open_date <- substr(open_date, 5, 12)} #"MARINE ENVIRONMENTAL SUPERVISOR" "SENIOR COMPUTER OPERATOR 1428 102017.txt" "SUPERVISING CRIMINALIST 2235 030416.txt" 
   #---------------------------------------------
   # Salary
-  ind_annSalary <- grep("ANNUAL SALARY|ANNUALSALARY", txt) + 1
+  # Get salary text
+  salary_section_identifier <- "ANNUAL SALARY|ANNUALSALARY"
+  ind_annSalary <- grep(salary_section_identifier, txt) + 1
   str_annSalary <- txt[ind_annSalary]
+  str_annSalary <- gsub(", ", ",", str_annSalary) # WATER UTILITY SUPERINTENDENT
+  str_annSalary <- gsub(" ,", ",", str_annSalary)
+  str_annSalary <- gsub(",\\$", " \\$", str_annSalary)
   #--
-  # Salary min and max (all ranges)
-  
-  pay_ranges <- gsub("[\\(.*\\),;\\$[:space:]]", "", str_annSalary) # EXHIBIT PREPARATOR has parens in salary section
-  pay_ranges <- str_trim(pay_ranges)
-  pay_ranges <- unlist(str_split(pay_ranges, "[^0-9]"))
-  ind_rm <- which(pay_ranges == "")
-  if(length(ind_rm) != 0){pay_ranges <- pay_ranges[-ind_rm]}
-  if(length(pay_ranges) == 1){if(nchar(pay_ranges) == 8){pay_ranges <- gsub(".{2}$", "", pay_ranges)}} # "BOILERMAKER 3735 110714.txt"
-  pay_ranges <- as.numeric(pay_ranges)
-  if(length(pay_ranges) > 0){
-    annSalary_min <- min(pay_ranges, na.rm = T)
-    annSalary_max <- max(pay_ranges, na.rm = T)
+  # Get all salary scales and/or flat-rated salaries from salary text
+  annSalaries_raw <- removePunctuation(str_annSalary) # Remove all but numbers and "to" #\\(.*\\),;\\$
+  salary_scales <- unlist(str_extract_all(annSalaries_raw, "[0-9]+ to [0-9]+")) # Keep only phrases of type "[some number] to [some number]"
+  salaries_flat <- str_trim(gsub("[0-9]+ to [0-9]+|[a-zA-z]+", "", annSalaries_raw)) # Keep all except phrases of type "[some number] to [some number]"
+  salaries_flat <- unlist(str_split(salaries_flat, " "))
+  ind_rm <- which(salaries_flat == "")
+  if(length(ind_rm) != 0){salaries_flat <- salaries_flat[-ind_rm]}
+  annSalaries_all <- as.numeric(c(unlist(str_split(salary_scales, "to")), salaries_flat))
+  if(file_name == "BOILERMAKER 3735 110714.txt"){ 
+      annSalaries_all <- gsub(".{2}$", "", annSalaries_all)
+      salaries_flat <- annSalaries_all
+    }
+  annSalaries_all <- as.numeric(annSalaries_all)
+  n_salary_scales <- length(salary_scales)
+  n_flat_rated_salaries <- length(salaries_flat)
+  # Salary min and max
+  if(n_salary_scales + n_flat_rated_salaries > 0){
+    annSalary_min <- min(annSalaries_all, na.rm = T)
+    annSalary_max <- max(annSalaries_all, na.rm = T)
   }else{
+    # Cases where salary not reported
     annSalary_min <- NA
     annSalary_max <- NA
   }
   #--
   # Salary growth potential
-  if(length(pay_ranges) > 1){
-    n_pay_ranges <- length(pay_ranges) / 2
-    growth_potential <- diff(pay_ranges)[seq(1, 2 * n_pay_ranges - 1, 2)]
+  if(n_salary_scales > 0){
+    salary_scale_bounds <- sapply(salary_scales, str_split, "to")
+    salary_scale_bounds <- as.numeric(unlist(salary_scale_bounds))
+    growth_potential <- diff(salary_scale_bounds)[seq(1, 2 * n_salary_scales - 1, 2)]
     growth_potential_all <- paste(as.character(growth_potential), collapse = ", ")
     growth_potential_mean <- mean(growth_potential)
-  }
-  if(length(pay_ranges) == 1){ # flat-rated cases
-    n_pay_ranges <- 0
-    growth_potential <- "0"
-    growth_potential_all <- "0"
-    growth_potential_mean <- 0
-  }
-  if(length(pay_ranges) == 0){ # "AIRPORT POLICE SPECIALIST 3236 063017 (2).txt"
-    n_pay_ranges <- NA
-    growth_potential <- "Not reported"
-    growth_potential_all <- "Not reported"
-    growth_potential_mean <- NA
+    growth_potential_cv <- sd(growth_potential) / growth_potential_mean
+  }else{
+    if(n_flat_rated_salaries > 0){
+      growth_potential <- "0"
+      growth_potential_all <- "0"
+      growth_potential_mean <- 0
+      growth_potential_cv <- NA
+      
+    }else{
+      # "AIRPORT POLICE SPECIALIST 3236 063017 (2).txt"
+      n_pay_ranges <- NA
+      growth_potential <- "Not reported"
+      growth_potential_all <- "Not reported"
+      growth_potential_mean <- NA
+      growth_potential_cv <- NA
+    }
   }
   #=============================================
   df_out <- data.frame(FILE_NAME = file_name,
@@ -214,14 +237,18 @@ parse_bulletin <- function(file_name, dir){
                        Annual_Salary = str_annSalary,
                        Annual_Salary_Min = annSalary_min,
                        Annual_Salary_Max = annSalary_max,
-                       Number_Pay_Ranges = n_pay_ranges,
+                       Number_Pay_Scales = n_salary_scales,
+                       Number_Flat_Rates = n_flat_rated_salaries,
                        Growth_Potential_all_ranges = growth_potential_all,
-                       Growth_Potential_AVG = growth_potential_mean)
+                       Growth_Potential_Average = growth_potential_mean,
+                       Growth_Potential_Coeff_of_Variation = growth_potential_cv)
   return(df_out)
 }
 special_case <- "Vocational Worker  DEPARTMENT OF PUBLIC WORKS.txt"
 duplicate_cases <- c("CHIEF CLERK POLICE 1219 061215.txt",# Old duplicate of CHIEF CLERK POLICE 1249 083118.txt with erroneous class code in file name (but correct inside file)
-                     "SENIOR UTILITY SERVICES SPECIALIST 3753 121815 (1).txt") #Old duplicate of "SENIOR UTILITY SERVICES SPECIALIST 3573 113018.txt" with class code in file name
+                     "SENIOR UTILITY SERVICES SPECIALIST 3753 121815 (1).txt",#Old duplicate of "SENIOR UTILITY SERVICES SPECIALIST 3573 113018.txt" with class code in file name
+                     "SENIOR EXAMINER OF QUESTIONED DOCUMENTS 3231 072216 REVISED 072716.txt" # Misnamed duplicate of "WATER UTILITY SUPERINTENDENT 3980 121418.txt"
+                     ) 
 file_names <- list.files(dir)
 file_names <- file_names[-which(file_names %in% duplicate_cases)]
 ind_rm <- which(file_names == special_case)
@@ -255,14 +282,19 @@ df$FILE_NAME[which(df$NUM_REQS_SUB == 10)]
 
 
 
-u <- df$Growth_Potential_AVG
+u <- df$Growth_Potential_Average
 length(which(u < 0))
 View(df[which(u < 0), ])
 View(df[which(u > 10^5), ])
-hist(df$Growth_Potential_AVG[u >= 0])
+hist(df$Growth_Potential_Average)
+hist(df$Growth_Potential_Coeff_of_Variation)
+
 df$FILE_NAME[which(df$Annual_Salary_Max > 10^6)]
 which(is.integer(df$Number_Pay_Ranges))
 hist(df$Annual_Salary_Min)
+plot(df$Growth_Potential_Average, df$Annual_Salary_Min)
+
+
 
 #--Special case
 
