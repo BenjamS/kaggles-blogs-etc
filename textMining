@@ -21,8 +21,135 @@ for (pkg in pkgs) {
 }
 rm(pkgs, pkg)
 gc()
+#======================================================
+# Define functions
+# Salary info getting function
+#str_annSalary <- str_annSalary_DWP
+get_salaries <- function(str_annSalary){
+  str_annSalary <- gsub(", ", ",", str_annSalary) # WATER UTILITY SUPERINTENDENT
+  str_annSalary <- gsub(" ,", ",", str_annSalary)
+  str_annSalary <- gsub(",\\$", " \\$", str_annSalary)
+  #--
+  # Get all salary scales and/or flat-rated salaries from salary text
+  annSalaries_raw <- removePunctuation(str_annSalary) # Remove all but numbers and "to" #\\(.*\\),;\\$
+  salary_scales <- unlist(str_extract_all(annSalaries_raw, "[0-9]+ to [0-9]+")) # Keep only phrases of type "[some number] to [some number]"
+  salaries_flat <- str_trim(gsub("[0-9]+ to [0-9]+|[a-zA-z]+", "", annSalaries_raw)) # Keep all except phrases of type "[some number] to [some number]"
+  salaries_flat <- unlist(str_split(salaries_flat, " "))
+  ind_rm <- which(salaries_flat == "")
+  if(length(ind_rm) != 0){salaries_flat <- salaries_flat[-ind_rm]}
+  #annSalaries_all <- as.numeric(c(unlist(str_split(salary_scales, "to")), salaries_flat))
+  #--------------
+  # # For output:
+  # out_salary_scales <- paste(salary_scales, collapse = ", ")
+  # out_salaries_flat <- paste(salaries_flat, collapse = ", ")
+  # out_salaries_all <- c(out_salary_scales, out_salaries_flat)
+  # ind_rm <- which(out_salaries_all == "")
+  # if(length(ind_rm) != 0){out_salaries_all <- out_salaries_all[-ind_rm]}
+  #----------------------------------------------
+  # The following snippet is needed to handle edge case "BOILERMAKER 3735 110714.txt"
+  # which has a salary expressed to 2 decimal places. The snippet removes the 2 decimal places.
+  if(file_name == "BOILERMAKER 3735 110714.txt"){
+    annSalaries_all <- gsub(".{2}$", "", annSalaries_all)
+    salaries_flat <- annSalaries_all
+  }
+  # The above snippet can be removed if all input files have salaries
+  # rounded to nearest dollar.
+  #----------------------------------------------
+  # Number of flat rated salaries and salary scales
+  #annSalaries_all <- as.numeric(annSalaries_all)
+  n_salary_scales <- length(salary_scales)
+  n_flat_rated_salaries <- length(salaries_flat)
+  if(n_salary_scales + n_flat_rated_salaries > 0){
+    # Deal with salary scales
+    if(n_salary_scales > 0){
+      ind_even <- 2 * n_salary_scales
+      ind_odd <- 2 * n_salary_scales - 1
+      salary_scale_bounds <- sapply(salary_scales, str_split, "to")
+      salary_scale_bounds <- as.numeric(unlist(salary_scale_bounds))
+      # Entry level salary
+      entry_salaries_scale <- salary_scale_bounds[seq(1, ind_odd, 2)]
+      out_entry_salaries_scale <- as.character(paste(entry_salaries_scale, collapse = ", "))
+      mean_entry_salaries_scale <- mean(entry_salaries_scale)
+      cv_entry_salaries_scale <- sd(entry_salaries_scale) / mean_entry_salaries_scale
+      # Salary cap
+      salary_caps <- salary_scale_bounds[seq(2, ind_even, 2)]
+      out_salary_caps <- as.character(paste(salary_caps, collapse = ", "))
+      mean_salary_caps <- mean(salary_caps)
+      cv_salary_caps <- sd(salary_caps) / mean_salary_caps
+      # Salary growth potential
+      growth_potential <- diff(salary_scale_bounds)[seq(1, ind_odd, 2)]
+      growth_potential_all <- paste(as.character(growth_potential), collapse = ", ")
+      growth_potential_mean <- mean(growth_potential)
+      growth_potential_cv <- sd(growth_potential) / growth_potential_mean
+    }else{
+      entry_salaries_scale <- NULL
+      out_entry_salaries_scale <- NA
+      mean_entry_salaries_scale <- NULL
+      cv_entry_salaries_scale <- NULL
+      out_salary_caps <- NULL
+      mean_salary_caps <- NULL
+      cv_salary_caps <- NULL
+      growth_potential_all <- "0"
+      growth_potential_mean <- 0
+      growth_potential_cv <- NULL
+    }
+    # Deal with flat-rated salaries
+    if(n_flat_rated_salaries > 0){
+      entry_salaries_flat <- as.character(paste(salaries_flat, ", "))
+      mean_entry_salaries_flat <- mean(entry_salaries_flat)
+      cv_entry_salaries_flat <- sd(entry_salaries_flat) / mean_entry_salaries_flat
+      out_entry_salaries_flat <- salaries_flat
+    }else{
+      entry_salaries_flat <- NULL
+      out_entry_salaries_flat <- NA
+      mean_entry_salaries_flat <- NA
+      cv_entry_salaries_flat <- NA
+    }
+    # Combine flat-rated salaries and salary scales
+    entry_salaries_all <- c(entry_salaries_flat, entry_salaries_scale)
+    mean_entry_salaries_all <- mean(entry_salaries_all, na.rm = T)
+    cv_entry_salaries_all <- sd(entry_salaries_all, na.rm = T) / mean_entry_salaries_all
+    out_entry_salaries_all <- as.character(paste(entry_salaries_all, collapse = ", "))
+    #----------------------------------------------
+    # The snippet below is needed to handle edge cases like
+    # "AIRPORT POLICE SPECIALIST 3236 063017 (2).txt"
+    # which do not indicate the salary.
+  }else{
+    n_salary_scales <- NA
+    n_flat_rated_salaries <- NA
+    out_entry_salaries_scale <- "TBD"
+    out_entry_salaries_flat <- "TBD"
+    out_entry_salaries_all <- "TBD"
+    mean_entry_salaries_all <- NA
+    cv_entry_salaries_all <- NA
+    mean_entry_salaries_scale <- NA
+    cv_entry_salaries_scale <- NA
+    salary_caps <- NA
+    mean_salary_caps <- NA
+    cv_salary_caps <- NA
+    mean_entry_salaries_flat <- NA
+    cv_entry_salaries_flat <- NA
+    growth_potential <- NA
+    growth_potential_all <- NA
+    growth_potential_mean <- NA
+    growth_potential_cv <- NA
+  }
+  # The above snippet can be removed if all input files report salary figures.
+  #----------------------------------------------
+  df_salary_info <- data.frame(n_salary_scales, n_flat_rated_salaries,
+                               out_entry_salaries_all, mean_entry_salaries_all, cv_entry_salaries_all,
+                               out_entry_salaries_scale, mean_entry_salaries_scale, cv_entry_salaries_scale,
+                               out_entry_salaries_flat, mean_entry_salaries_flat, cv_entry_salaries_flat,
+                               out_salary_caps, mean_salary_caps, cv_salary_caps,
+                               growth_potential_all, growth_potential_mean, growth_potential_cv)
+  
+return(df_salary_info)
+}
 
-#-----------------------------------------
+
+
+
+#------------------------------------------------------
 #dir <- "CityofLA/Job Bulletins/"
 dir <- "D:/OneDrive - CGIAR/Documents/kaggle/CityofLA/Job Bulletins/"
 
@@ -44,6 +171,7 @@ file_name <- file_names[1]
 #file_name <- "BOILERMAKER 3735 110714.txt"
 #file_name <- "ELECTRIC STATION OPERATOR  5224 070717 (3).txt"
 #file_name <- "MANAGING WATER UTILITY ENGINEER 9406 032417 REV 040417.txt"
+#file_name <- "SYSTEMS ANALYST 1596 102717.txt"
 #-----------------------------------------------
 # Notes:
 #*"CHIEF CLERK POLICE 1219 061215.txt" is old duplicate of "CHIEF CLERK POLICE 1249 083118.txt". Note file name class code
@@ -171,60 +299,26 @@ parse_bulletin <- function(file_name, dir){
   # Salary
   # Get salary text
   salary_section_identifier <- "ANNUAL SALARY|ANNUALSALARY"
-  ind_annSalary <- grep(salary_section_identifier, txt) + 1
-  str_annSalary <- txt[ind_annSalary]
-  str_annSalary <- gsub(", ", ",", str_annSalary) # WATER UTILITY SUPERINTENDENT
-  str_annSalary <- gsub(" ,", ",", str_annSalary)
-  str_annSalary <- gsub(",\\$", " \\$", str_annSalary)
+  ind_annSalary_start <- grep(salary_section_identifier, txt) + 1
+  str_annSalary_end <- section_headings[grep(salary_section_identifier, section_headings) + 1]
+  ind_annSalary_end <- grep(str_annSalary_end, txt) - 1
+  ind_rm <- which(ind_annSalary_end < ind_annSalary_start)
+  if(length(ind_rm) != 0){ind_annSalary_end <- ind_annSalary_end[-ind_rm]}
+  ind_annSalary_end <- ind_annSalary_end[1]
+  str_annSalary <- txt[ind_annSalary_start:ind_annSalary_end]
+  str_annSalary <- paste(str_annSalary, collapse = " ")
+  # Split into GEN and DWP salary text
+  str_annSalary_vec <- unlist(str_split(str_annSalary, "Power"))
+  str_annSalary_GEN <- str_annSalary_vec[1]
+  str_annSalary_DWP <- str_annSalary_vec[2]
   #--
-  # Get all salary scales and/or flat-rated salaries from salary text
-  annSalaries_raw <- removePunctuation(str_annSalary) # Remove all but numbers and "to" #\\(.*\\),;\\$
-  salary_scales <- unlist(str_extract_all(annSalaries_raw, "[0-9]+ to [0-9]+")) # Keep only phrases of type "[some number] to [some number]"
-  salaries_flat <- str_trim(gsub("[0-9]+ to [0-9]+|[a-zA-z]+", "", annSalaries_raw)) # Keep all except phrases of type "[some number] to [some number]"
-  salaries_flat <- unlist(str_split(salaries_flat, " "))
-  ind_rm <- which(salaries_flat == "")
-  if(length(ind_rm) != 0){salaries_flat <- salaries_flat[-ind_rm]}
-  annSalaries_all <- as.numeric(c(unlist(str_split(salary_scales, "to")), salaries_flat))
-  if(file_name == "BOILERMAKER 3735 110714.txt"){ 
-      annSalaries_all <- gsub(".{2}$", "", annSalaries_all)
-      salaries_flat <- annSalaries_all
-    }
-  annSalaries_all <- as.numeric(annSalaries_all)
-  n_salary_scales <- length(salary_scales)
-  n_flat_rated_salaries <- length(salaries_flat)
-  # Salary min and max
-  if(n_salary_scales + n_flat_rated_salaries > 0){
-    annSalary_min <- min(annSalaries_all, na.rm = T)
-    annSalary_max <- max(annSalaries_all, na.rm = T)
-  }else{
-    # Cases where salary not reported
-    annSalary_min <- NA
-    annSalary_max <- NA
+  # Get GEN salary info
+  if(!is.na(str_annSalary_GEN)){
+    df_annSalary_GEN <- get_salaries(str_annSalary_GEN)
   }
-  #--
-  # Salary growth potential
-  if(n_salary_scales > 0){
-    salary_scale_bounds <- sapply(salary_scales, str_split, "to")
-    salary_scale_bounds <- as.numeric(unlist(salary_scale_bounds))
-    growth_potential <- diff(salary_scale_bounds)[seq(1, 2 * n_salary_scales - 1, 2)]
-    growth_potential_all <- paste(as.character(growth_potential), collapse = ", ")
-    growth_potential_mean <- mean(growth_potential)
-    growth_potential_cv <- sd(growth_potential) / growth_potential_mean
-  }else{
-    if(n_flat_rated_salaries > 0){
-      growth_potential <- "0"
-      growth_potential_all <- "0"
-      growth_potential_mean <- 0
-      growth_potential_cv <- NA
-      
-    }else{
-      # "AIRPORT POLICE SPECIALIST 3236 063017 (2).txt"
-      n_pay_ranges <- NA
-      growth_potential <- "Not reported"
-      growth_potential_all <- "Not reported"
-      growth_potential_mean <- NA
-      growth_potential_cv <- NA
-    }
+  # Get DWP salary info
+  if(!is.na(str_annSalary_DWP)){
+    df_annSalary_DWP <- get_salaries(str_annSalary_DWP)
   }
   #=============================================
   df_out <- data.frame(FILE_NAME = file_name,
@@ -234,21 +328,28 @@ parse_bulletin <- function(file_name, dir){
                        Duties = str_Duties,
                        EXAM_TYPE = exam_type,
                        OPEN_DATE = open_date,
-                       Annual_Salary = str_annSalary,
-                       Annual_Salary_Min = annSalary_min,
-                       Annual_Salary_Max = annSalary_max,
-                       Number_Pay_Scales = n_salary_scales,
-                       Number_Flat_Rates = n_flat_rated_salaries,
-                       Growth_Potential_all_ranges = growth_potential_all,
-                       Growth_Potential_Average = growth_potential_mean,
-                       Growth_Potential_Coeff_of_Variation = growth_potential_cv)
+                       Annual_Salary_Text = str_annSalary,
+                       Annual_Salary_Min_GEN = annSalary_min_GEN,
+                       Annual_Salary_Max_GEN = annSalary_max_GEN,
+                       Number_Pay_Scales_GEN = n_salary_scales_GEN,
+                       Number_Flat_Rates_GEN = n_flat_rated_salaries_GEN,
+                       Growth_Potential_all_ranges_GEN = growth_potential_all_GEN,
+                       Growth_Potential_Average_GEN = growth_potential_mean_GEN,
+                       Growth_Potential_Coeff_of_Variation_GEN = growth_potential_cv_GEN,
+                       Annual_Salary_Min_DWP = annSalary_min_DWP,
+                       Annual_Salary_Max_DWP = annSalary_max_DWP,
+                       Number_Pay_Scales_DWP = n_salary_scales_DWP,
+                       Number_Flat_Rates_DWP = n_flat_rated_salaries_DWP,
+                       Growth_Potential_all_ranges_DWP = growth_potential_all_DWP,
+                       Growth_Potential_Average_DWP = growth_potential_mean_DWP,
+                       Growth_Potential_Coeff_of_Variation_DWP = growth_potential_cv_DWP)
   return(df_out)
 }
 special_case <- "Vocational Worker  DEPARTMENT OF PUBLIC WORKS.txt"
 duplicate_cases <- c("CHIEF CLERK POLICE 1219 061215.txt",# Old duplicate of CHIEF CLERK POLICE 1249 083118.txt with erroneous class code in file name (but correct inside file)
                      "SENIOR UTILITY SERVICES SPECIALIST 3753 121815 (1).txt",#Old duplicate of "SENIOR UTILITY SERVICES SPECIALIST 3573 113018.txt" with class code in file name
                      "SENIOR EXAMINER OF QUESTIONED DOCUMENTS 3231 072216 REVISED 072716.txt" # Misnamed duplicate of "WATER UTILITY SUPERINTENDENT 3980 121418.txt"
-                     ) 
+) 
 file_names <- list.files(dir)
 file_names <- file_names[-which(file_names %in% duplicate_cases)]
 ind_rm <- which(file_names == special_case)
