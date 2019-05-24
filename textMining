@@ -13,7 +13,7 @@ options(warn = -1); options(scipen = 999)
 #   devtools::install_github("bmschmidt/wordVectors")
 # }
 
-pkgs <- c("tidyverse", "tidytext", "FactoMineR", "factoextra", "readr", "tm")
+pkgs <- c("plyr", "tidyverse", "tidytext", "FactoMineR", "factoextra", "readr", "tm")
 
 for (pkg in pkgs) {
   if (! (pkg %in% rownames(installed.packages()))){install.packages(pkg)}
@@ -24,7 +24,8 @@ gc()
 #======================================================
 # Define functions
 # Salary info getting function
-#str_annSalary <- str_annSalary_DWP
+#str_annSalary <- str_annSalary_GEN
+#str_annSalary <- NULL
 get_salaries <- function(str_annSalary){
   str_annSalary <- gsub(", ", ",", str_annSalary) # WATER UTILITY SUPERINTENDENT
   str_annSalary <- gsub(" ,", ",", str_annSalary)
@@ -49,8 +50,7 @@ get_salaries <- function(str_annSalary){
   # The following snippet is needed to handle edge case "BOILERMAKER 3735 110714.txt"
   # which has a salary expressed to 2 decimal places. The snippet removes the 2 decimal places.
   if(file_name == "BOILERMAKER 3735 110714.txt"){
-    annSalaries_all <- gsub(".{2}$", "", annSalaries_all)
-    salaries_flat <- annSalaries_all
+    salaries_flat <- gsub(".{2}$", "", salaries_flat)
   }
   # The above snippet can be removed if all input files have salaries
   # rounded to nearest dollar.
@@ -79,47 +79,47 @@ get_salaries <- function(str_annSalary){
       # Salary growth potential
       growth_potential <- diff(salary_scale_bounds)[seq(1, ind_odd, 2)]
       growth_potential_all <- paste(as.character(growth_potential), collapse = ", ")
-      growth_potential_mean <- mean(growth_potential)
-      growth_potential_cv <- sd(growth_potential) / growth_potential_mean
+      mean_growth_potential <- mean(growth_potential)
+      cv_growth_potential <- sd(growth_potential) / mean_growth_potential
     }else{
-      entry_salaries_scale <- NULL
+      entry_salaries_scale <- NA
       out_entry_salaries_scale <- NA
-      mean_entry_salaries_scale <- NULL
-      cv_entry_salaries_scale <- NULL
-      out_salary_caps <- NULL
-      mean_salary_caps <- NULL
-      cv_salary_caps <- NULL
+      mean_entry_salaries_scale <- NA
+      cv_entry_salaries_scale <- NA
+      out_salary_caps <- NA
+      mean_salary_caps <- NA
+      cv_salary_caps <- NA
       growth_potential_all <- "0"
-      growth_potential_mean <- 0
-      growth_potential_cv <- NULL
+      mean_growth_potential <- 0
+      cv_growth_potential <- NA
     }
     # Deal with flat-rated salaries
     if(n_flat_rated_salaries > 0){
-      entry_salaries_flat <- as.character(paste(salaries_flat, ", "))
+      out_entry_salaries_flat <- as.character(paste(salaries_flat, collapse = ", "))
+      entry_salaries_flat <- as.numeric(salaries_flat)
       mean_entry_salaries_flat <- mean(entry_salaries_flat)
       cv_entry_salaries_flat <- sd(entry_salaries_flat) / mean_entry_salaries_flat
-      out_entry_salaries_flat <- salaries_flat
     }else{
-      entry_salaries_flat <- NULL
+      entry_salaries_flat <- NA
       out_entry_salaries_flat <- NA
       mean_entry_salaries_flat <- NA
       cv_entry_salaries_flat <- NA
     }
-    # Combine flat-rated salaries and salary scales
+    # Combine entry level salaries, flat-rated and scale based
     entry_salaries_all <- c(entry_salaries_flat, entry_salaries_scale)
+    ind_rm <- which(is.na(entry_salaries_all))
+    if(length(ind_rm) != 0){entry_salaries_all <- entry_salaries_all[-ind_rm]}
     mean_entry_salaries_all <- mean(entry_salaries_all, na.rm = T)
     cv_entry_salaries_all <- sd(entry_salaries_all, na.rm = T) / mean_entry_salaries_all
     out_entry_salaries_all <- as.character(paste(entry_salaries_all, collapse = ", "))
     #----------------------------------------------
-    # The snippet below is needed to handle edge cases like
-    # "AIRPORT POLICE SPECIALIST 3236 063017 (2).txt"
-    # which do not indicate the salary.
   }else{
     n_salary_scales <- NA
     n_flat_rated_salaries <- NA
-    out_entry_salaries_scale <- "TBD"
-    out_entry_salaries_flat <- "TBD"
-    out_entry_salaries_all <- "TBD"
+    out_entry_salaries_scale <- NA
+    out_salary_caps <- NA
+    out_entry_salaries_flat <- NA
+    out_entry_salaries_all <- NA
     mean_entry_salaries_all <- NA
     cv_entry_salaries_all <- NA
     mean_entry_salaries_scale <- NA
@@ -129,21 +129,21 @@ get_salaries <- function(str_annSalary){
     cv_salary_caps <- NA
     mean_entry_salaries_flat <- NA
     cv_entry_salaries_flat <- NA
-    growth_potential <- NA
     growth_potential_all <- NA
-    growth_potential_mean <- NA
-    growth_potential_cv <- NA
+    mean_growth_potential <- NA
+    cv_growth_potential <- NA
   }
-  # The above snippet can be removed if all input files report salary figures.
   #----------------------------------------------
   df_salary_info <- data.frame(n_salary_scales, n_flat_rated_salaries,
-                               out_entry_salaries_all, mean_entry_salaries_all, cv_entry_salaries_all,
-                               out_entry_salaries_scale, mean_entry_salaries_scale, cv_entry_salaries_scale,
-                               out_entry_salaries_flat, mean_entry_salaries_flat, cv_entry_salaries_flat,
-                               out_salary_caps, mean_salary_caps, cv_salary_caps,
-                               growth_potential_all, growth_potential_mean, growth_potential_cv)
+                               ENTRY_SALARY = out_entry_salaries_all,
+                               mean_entry_salaries_all,
+                               cv_entry_salaries_all,
+                               entry_salaries_scale = out_entry_salaries_scale, mean_entry_salaries_scale, cv_entry_salaries_scale,
+                               entry_salaries_flat = out_entry_salaries_flat, mean_entry_salaries_flat, cv_entry_salaries_flat,
+                               salary_caps = out_salary_caps, mean_salary_caps, cv_salary_caps,
+                               growth_potential_all, mean_growth_potential, cv_growth_potential)
   
-return(df_salary_info)
+  return(df_salary_info)
 }
 
 
@@ -152,8 +152,6 @@ return(df_salary_info)
 #------------------------------------------------------
 #dir <- "CityofLA/Job Bulletins/"
 dir <- "D:/OneDrive - CGIAR/Documents/kaggle/CityofLA/Job Bulletins/"
-
-# #--
 #------------------------------------------------------
 #"CityofLA/Job Bulletins/Vocational Worker  DEPARTMENT OF PUBLIC WORKS.txt"
 file_names <- list.files(dir)
@@ -172,6 +170,8 @@ file_name <- file_names[1]
 #file_name <- "ELECTRIC STATION OPERATOR  5224 070717 (3).txt"
 #file_name <- "MANAGING WATER UTILITY ENGINEER 9406 032417 REV 040417.txt"
 #file_name <- "SYSTEMS ANALYST 1596 102717.txt"
+#file_name <- "311 DIRECTOR  9206 041814.txt"
+#file_name <- "AIR CONDITIONING MECHANIC 3774 041417.txt"
 #-----------------------------------------------
 # Notes:
 #*"CHIEF CLERK POLICE 1219 061215.txt" is old duplicate of "CHIEF CLERK POLICE 1249 083118.txt". Note file name class code
@@ -270,9 +270,30 @@ parse_bulletin <- function(file_name, dir){
     }
   }
   #--
-  # ENTRY_SALARY_GEN
+  # Salary
+  # Get salary text
+  salary_section_identifier <- "ANNUAL SALARY|ANNUALSALARY"
+  ind_annSalary_start <- grep(salary_section_identifier, txt) + 1
+  str_annSalary_end <- section_headings[grep(salary_section_identifier, section_headings) + 1]
+  ind_annSalary_end <- grep(str_annSalary_end, txt) - 1
+  ind_rm <- which(ind_annSalary_end < ind_annSalary_start)
+  if(length(ind_rm) != 0){ind_annSalary_end <- ind_annSalary_end[-ind_rm]}
+  ind_annSalary_end <- ind_annSalary_end[1]
+  str_annSalary <- txt[ind_annSalary_start:ind_annSalary_end]
+  str_annSalary <- paste(str_annSalary, collapse = " ")
+  # Split into GEN and DWP salary text
+  str_annSalary_vec <- unlist(str_split(str_annSalary, "Power"))
+  str_annSalary_GEN <- str_annSalary_vec[1]
+  str_annSalary_DWP <- str_annSalary_vec[2]
+  if(is.na(str_annSalary_GEN)){str_annSalary_GEN <- NULL}
+  if(is.na(str_annSalary_DWP)){str_annSalary_DWP <- NULL}
   #--
-  # ENTRY_SALARY_DWP
+  # Get GEN salary info
+  df_annSalary_GEN <- get_salaries(str_annSalary_GEN)
+  colnames(df_annSalary_GEN) <- paste0(colnames(df_annSalary_GEN), "_GEN")
+  # Get DWP salary info
+  df_annSalary_DWP <- get_salaries(str_annSalary_DWP)
+  colnames(df_annSalary_DWP) <- paste0(colnames(df_annSalary_DWP), "_DWP")
   #---------------------------------------------
   # Duties
   ind_Duties_start <- grep("DUTIES", txt) + 1
@@ -295,31 +316,6 @@ parse_bulletin <- function(file_name, dir){
   xx <- txt[ind_openDate[1]]
   open_date <- gsub("\\b[^0-9-]", "", xx)
   if(nchar(open_date) > 8){open_date <- substr(open_date, 5, 12)} #"MARINE ENVIRONMENTAL SUPERVISOR" "SENIOR COMPUTER OPERATOR 1428 102017.txt" "SUPERVISING CRIMINALIST 2235 030416.txt" 
-  #---------------------------------------------
-  # Salary
-  # Get salary text
-  salary_section_identifier <- "ANNUAL SALARY|ANNUALSALARY"
-  ind_annSalary_start <- grep(salary_section_identifier, txt) + 1
-  str_annSalary_end <- section_headings[grep(salary_section_identifier, section_headings) + 1]
-  ind_annSalary_end <- grep(str_annSalary_end, txt) - 1
-  ind_rm <- which(ind_annSalary_end < ind_annSalary_start)
-  if(length(ind_rm) != 0){ind_annSalary_end <- ind_annSalary_end[-ind_rm]}
-  ind_annSalary_end <- ind_annSalary_end[1]
-  str_annSalary <- txt[ind_annSalary_start:ind_annSalary_end]
-  str_annSalary <- paste(str_annSalary, collapse = " ")
-  # Split into GEN and DWP salary text
-  str_annSalary_vec <- unlist(str_split(str_annSalary, "Power"))
-  str_annSalary_GEN <- str_annSalary_vec[1]
-  str_annSalary_DWP <- str_annSalary_vec[2]
-  #--
-  # Get GEN salary info
-  if(!is.na(str_annSalary_GEN)){
-    df_annSalary_GEN <- get_salaries(str_annSalary_GEN)
-  }
-  # Get DWP salary info
-  if(!is.na(str_annSalary_DWP)){
-    df_annSalary_DWP <- get_salaries(str_annSalary_DWP)
-  }
   #=============================================
   df_out <- data.frame(FILE_NAME = file_name,
                        JOB_CLASS_TITLE = job_class_title,
@@ -327,24 +323,11 @@ parse_bulletin <- function(file_name, dir){
                        Requirements = str_reqMinquals,
                        Duties = str_Duties,
                        EXAM_TYPE = exam_type,
-                       OPEN_DATE = open_date,
-                       Annual_Salary_Text = str_annSalary,
-                       Annual_Salary_Min_GEN = annSalary_min_GEN,
-                       Annual_Salary_Max_GEN = annSalary_max_GEN,
-                       Number_Pay_Scales_GEN = n_salary_scales_GEN,
-                       Number_Flat_Rates_GEN = n_flat_rated_salaries_GEN,
-                       Growth_Potential_all_ranges_GEN = growth_potential_all_GEN,
-                       Growth_Potential_Average_GEN = growth_potential_mean_GEN,
-                       Growth_Potential_Coeff_of_Variation_GEN = growth_potential_cv_GEN,
-                       Annual_Salary_Min_DWP = annSalary_min_DWP,
-                       Annual_Salary_Max_DWP = annSalary_max_DWP,
-                       Number_Pay_Scales_DWP = n_salary_scales_DWP,
-                       Number_Flat_Rates_DWP = n_flat_rated_salaries_DWP,
-                       Growth_Potential_all_ranges_DWP = growth_potential_all_DWP,
-                       Growth_Potential_Average_DWP = growth_potential_mean_DWP,
-                       Growth_Potential_Coeff_of_Variation_DWP = growth_potential_cv_DWP)
+                       OPEN_DATE = open_date)
+  df_out <- as.data.frame(do.call(cbind, list(df_out, df_annSalary_GEN, df_annSalary_DWP)))
   return(df_out)
 }
+#===============================================
 special_case <- "Vocational Worker  DEPARTMENT OF PUBLIC WORKS.txt"
 duplicate_cases <- c("CHIEF CLERK POLICE 1219 061215.txt",# Old duplicate of CHIEF CLERK POLICE 1249 083118.txt with erroneous class code in file name (but correct inside file)
                      "SENIOR UTILITY SERVICES SPECIALIST 3753 121815 (1).txt",#Old duplicate of "SENIOR UTILITY SERVICES SPECIALIST 3573 113018.txt" with class code in file name
@@ -356,11 +339,12 @@ ind_rm <- which(file_names == special_case)
 file_names <- file_names[-ind_rm]
 list_df <- map(file_names, parse_bulletin, dir)
 df <- do.call(rbind, list_df)
+
+
 df$FILE_NAME <- as.character(df$FILE_NAME)
 df$JOB_CLASS_TITLE <- as.character(df$JOB_CLASS_TITLE)
 df$JOB_CLASS_NO <- as.character(df$JOB_CLASS_NO)
 df$OPEN_DATE <- as.character(df$OPEN_DATE)
-df$Annual_Salary <- as.character(df$Annual_Salary)
 df$Duties <- as.character(df$Duties)
 df$Requirements <- as.character(df$Requirements)
 df$NUM_REQS <- str_count(df$Requirements, "\\b[0-9]\\.")
@@ -368,6 +352,9 @@ df$NUM_REQS_SUB <- str_count(df$Requirements, "\\b[a-z]\\.")
 
 df$FILE_NAME[which(duplicated(df$JOB_CLASS_TITLE))]
 df$JOB_CLASS_TITLE[which(duplicated(df$JOB_CLASS_TITLE))]
+
+df$JOB_CLASS_NO[which(duplicated(df$JOB_CLASS_NO))]
+df$FILE_NAME[which(duplicated(df$JOB_CLASS_NO))]
 
 hist(as.numeric(df$JOB_CLASS_NO))
 df$JOB_CLASS_TITLE[which(as.numeric(df$JOB_CLASS_NO) > 9999)]
