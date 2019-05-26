@@ -25,6 +25,7 @@ gc()
 # Define functions
 # Salary info getting function
 #str_annSalary <- str_annSalary_GEN
+#str_annSalary <- str_annSalary_DWP
 #str_annSalary <- NULL
 get_salaries <- function(str_annSalary){
   str_annSalary <- gsub(", ", ",", str_annSalary) # WATER UTILITY SUPERINTENDENT
@@ -38,22 +39,19 @@ get_salaries <- function(str_annSalary){
   salaries_flat <- unlist(str_split(salaries_flat, " "))
   ind_rm <- which(salaries_flat == "")
   if(length(ind_rm) != 0){salaries_flat <- salaries_flat[-ind_rm]}
-  #annSalaries_all <- as.numeric(c(unlist(str_split(salary_scales, "to")), salaries_flat))
-  #--------------
-  # # For output:
-  # out_salary_scales <- paste(salary_scales, collapse = ", ")
-  # out_salaries_flat <- paste(salaries_flat, collapse = ", ")
-  # out_salaries_all <- c(out_salary_scales, out_salaries_flat)
-  # ind_rm <- which(out_salaries_all == "")
-  # if(length(ind_rm) != 0){out_salaries_all <- out_salaries_all[-ind_rm]}
   #----------------------------------------------
   # The following snippet is needed to handle edge case "BOILERMAKER 3735 110714.txt"
-  # which has a salary expressed to 2 decimal places. The snippet removes the 2 decimal places.
-  if(file_name == "BOILERMAKER 3735 110714.txt"){
-    salaries_flat <- gsub(".{2}$", "", salaries_flat)
+  # which has a 5 figure salary expressed to 2 decimal places.
+  # The snippet removes the 2 decimal places.
+  if(!is.null(salaries_flat)){
+    if(length(salaries_flat) != 0){
+      if(nchar(salaries_flat) == 7){
+        salaries_flat <- gsub(".{2}$", "", salaries_flat)
+      }
+    }
   }
   # The above snippet can be removed if all input files have salaries
-  # rounded to nearest dollar.
+  # rounded to nearest dollar (no decimal places).
   #----------------------------------------------
   # Number of flat rated salaries and salary scales
   #annSalaries_all <- as.numeric(annSalaries_all)
@@ -89,7 +87,7 @@ get_salaries <- function(str_annSalary){
       out_salary_caps <- NA
       mean_salary_caps <- NA
       cv_salary_caps <- NA
-      growth_potential_all <- "0"
+      growth_potential_all <- 0
       mean_growth_potential <- 0
       cv_growth_potential <- NA
     }
@@ -172,6 +170,7 @@ file_name <- file_names[1]
 #file_name <- "SYSTEMS ANALYST 1596 102717.txt"
 #file_name <- "311 DIRECTOR  9206 041814.txt"
 #file_name <- "AIR CONDITIONING MECHANIC 3774 041417.txt"
+#file_name <- "ANIMAL CARE TECHNICIAN SUPERVISOR 4313 122118 corrected.txt"
 #-----------------------------------------------
 # Notes:
 #*"CHIEF CLERK POLICE 1219 061215.txt" is old duplicate of "CHIEF CLERK POLICE 1249 083118.txt". Note file name class code
@@ -194,13 +193,13 @@ parse_bulletin <- function(file_name, dir){
   txt <- str_trim(txt)
   ind_rm <- which(txt == "")
   txt <- txt[-ind_rm]
-  ind_headings <- grep("^[A-Z :/,\t]+$", txt)
+  ind_headings <- grep("^[A-Z :/,\t\\(\\)]+$", txt)
   section_headings <- txt[ind_headings]
   section_headings <- str_trim(section_headings)
   #---------------------------------------------
   # Job class title
   # job_class_title <- txt[1]
-  job_class_title <- gsub("[0-9\\(\\)\\.txt]|REV|REVISED", "", file_name)
+  job_class_title <- gsub("[0-9\\(\\)\\.txt]|REV|REVISED|[a-z]", "", file_name)
   job_class_title <- str_trim(job_class_title)
   #---------------------------------------------
   # Job class number (taken from inside file)
@@ -331,7 +330,9 @@ parse_bulletin <- function(file_name, dir){
 special_case <- "Vocational Worker  DEPARTMENT OF PUBLIC WORKS.txt"
 duplicate_cases <- c("CHIEF CLERK POLICE 1219 061215.txt",# Old duplicate of CHIEF CLERK POLICE 1249 083118.txt with erroneous class code in file name (but correct inside file)
                      "SENIOR UTILITY SERVICES SPECIALIST 3753 121815 (1).txt",#Old duplicate of "SENIOR UTILITY SERVICES SPECIALIST 3573 113018.txt" with class code in file name
-                     "SENIOR EXAMINER OF QUESTIONED DOCUMENTS 3231 072216 REVISED 072716.txt" # Misnamed duplicate of "WATER UTILITY SUPERINTENDENT 3980 121418.txt"
+                     "SENIOR EXAMINER OF QUESTIONED DOCUMENTS 3231 072216 REVISED 072716.txt", # Misnamed duplicate of "WATER UTILITY SUPERINTENDENT 3980 121418.txt"
+                     "WASTEWATER COLLECTION SUPERVISOR 4113 121616.txt", # Old misnamed duplicate (same job code) of "WASTEWATER TREATMENT OPERATOR 120718.txt"
+                     "ANIMAL CARE TECHNICIAN SUPERVISOR 4313 122118.txt" # Mislabeled duplicate of "WATER TREATMENT OPERATOR 5885 122118.txt"
 ) 
 file_names <- list.files(dir)
 file_names <- file_names[-which(file_names %in% duplicate_cases)]
@@ -350,11 +351,17 @@ df$Requirements <- as.character(df$Requirements)
 df$NUM_REQS <- str_count(df$Requirements, "\\b[0-9]\\.")
 df$NUM_REQS_SUB <- str_count(df$Requirements, "\\b[a-z]\\.")
 
-df$FILE_NAME[which(duplicated(df$JOB_CLASS_TITLE))]
-df$JOB_CLASS_TITLE[which(duplicated(df$JOB_CLASS_TITLE))]
+# df$FILE_NAME[which(duplicated(df$JOB_CLASS_TITLE))]
+# df$JOB_CLASS_TITLE[which(duplicated(df$JOB_CLASS_TITLE))]
+# df$JOB_CLASS_NO[which(duplicated(df$JOB_CLASS_NO))]
+# df$FILE_NAME[which(duplicated(df$JOB_CLASS_NO))]
+# df$FILE_NAME[which(df$JOB_CLASS_NO == 4123)]
+# df$FILE_NAME[which(df$JOB_CLASS_NO == 5885)]
+#df$FILE_NAME[which(df$JOB_CLASS_NO == 4313)]
+#df$FILE_NAME[which(df$JOB_CLASS_NO == 4113)]
 
-df$JOB_CLASS_NO[which(duplicated(df$JOB_CLASS_NO))]
-df$FILE_NAME[which(duplicated(df$JOB_CLASS_NO))]
+
+
 
 hist(as.numeric(df$JOB_CLASS_NO))
 df$JOB_CLASS_TITLE[which(as.numeric(df$JOB_CLASS_NO) > 9999)]
@@ -363,29 +370,23 @@ df$OPEN_DATE[which(as.numeric(df$JOB_CLASS_NO) > 9999)]
 
 
 hist(df$NUM_REQS)
+length(which(df$NUM_REQS > 1))
 hist(df$NUM_REQS_SUB)
 df$Requirements[which(df$NUM_REQS_SUB == 10)]
 df$FILE_NAME[which(df$NUM_REQS_SUB == 10)]
 
 
 
-
-u <- df$Growth_Potential_Average
+class(df$growth_potential_all_GEN)
+u <- df$mean_growth_potential_GEN
 length(which(u < 0))
 View(df[which(u < 0), ])
 View(df[which(u > 10^5), ])
-hist(df$Growth_Potential_Average)
+hist(u)
 hist(df$Growth_Potential_Coeff_of_Variation)
-
-df$FILE_NAME[which(df$Annual_Salary_Max > 10^6)]
-which(is.integer(df$Number_Pay_Ranges))
-hist(df$Annual_Salary_Min)
-plot(df$Growth_Potential_Average, df$Annual_Salary_Min)
-
 
 
 #--Special case
-
 if(file_name %in% special_case){
   df_out <- data.frame(File_Name = special_case, Open_Date = NA,
                        Duties = NA, Requirements = NA,
@@ -439,32 +440,101 @@ nrow(df)
 #grep("EMERGENCY MEDICAL SERVICES EDUCATOR", file_names)
 
 df$`Duties and Requirements` <- paste(df$Duties, df$Requirements)
+removeURL <- function(x) gsub("http:[[:alnum:]]*", "", x)
 
 processCorpus <- function (corpus)
 {
-  corpus <- tm_map(corpus, stripWhitespace)
   corpus <- tm_map(corpus, content_transformer(tolower))
-  corpus <- tm_map(corpus, stemDocument, language="english")
+  corpus <- tm_map(corpus, removeNumbers)
+  corpus <- tm_map(corpus, content_transformer(removeURL))
   corpus <- tm_map(corpus, removePunctuation, preserve_intra_word_dashes = TRUE)
   corpus <- tm_map(corpus, removeWords, stopwords("english"))
-  corpus <- tm_map(corpus, function (x) {
-    gsub("\\s*(?<!\\B|-)\\d+(?!\\B|-)\\s*", "", x, perl = TRUE) })
-  corpus <- tm_map(corpus, stripWhitespace)
+  corpus <- tm_map(corpus, stemDocument, language="english")
+  #corpus <- tm_map(corpus, stripWhitespace)
+  # corpus <- tm_map(corpus, function (x) {
+  #   gsub("\\s*(?<!\\B|-)\\d+(?!\\B|-)\\s*", "", x, perl = TRUE) })
+  #corpus <- tm_map(corpus, stripWhitespace)
   return (corpus)
 }
-corpus <- Corpus(VectorSource(df$`Duties and Requirements`))
+corpus <- VCorpus(VectorSource(df$`Duties and Requirements`))
 #summary(corpus)  #check what went in
 corpus <- processCorpus(corpus)
 dtm <- DocumentTermMatrix(corpus) 
 dtm <- removeSparseTerms(dtm, 0.9)
+
+#Sys.setenv(JAVA_HOME="")
+library(rJava)
+library(RWeka)
+TrigramTokenizer <- function(x) NGramTokenizer(x, Weka_control(min = 1, max = 5))
+dtm_trigram <- TermDocumentMatrix(corpus, control = list(tokenize = TrigramTokenizer))
+dtm_trigram <- removeSparseTerms(dtm_trigram, 0.9)
+inspect(dtm_trigram[1:5,1:5])
+
+df_dtmTri <- tidy(dtm_trigram)
+df_dtmTri <- df_dtmTri %>% spread(term, count)
+dim(df_dtmTri)
+df_dtmTri[is.na(df_dtmTri)] <- 0
+df_dtmTri$document <- df$JOB_CLASS_TITLE
+cormat <- cor(as.matrix(df_dtmTri[, -c(1, ncol(df_dtmTri))]))
+#cormat <- cor(t(as.matrix(df_dtm[, -ncol(df_dtm)])))
+image(cormat)
+
+
+library(wordVectors)
+write.table(corpus$content, "corp.txt", sep="\t")
+prep_word2vec(origin = "corp.txt", destination = "corp2.txt", lowercase = F, bundle_ngrams = 3, force = T)
+x <- readLines("corp2.txt")
+model = train_word2vec("corp2.txt", "corp_vectors.bin", vectors = 200, threads = 4, window = 12, iter = 5, negative_samples = 0, force = T)
+#rm(corpus); gc()
+#model = read.vectors("corp_vectors.bin")
+#-------------------------------------------
+#dimnames(model)[[1]] <- gsub("dash", "-", dimnames(model)[[1]])
+vocab <- dimnames(model)[[1]]
+head(vocab)
+vocab[1:150]
+model %>% closest_to("environ")
+model %>% closest_to("engin")
+bin_to_txt("corp_vectors.bin","vector.txt")
+df_wv=as.data.frame(read.table("vector.txt",skip=1))
+dim(df_wv)
+cnames <- df_wv$V1
+cnames
+mat_wv <- t(as.matrix(df_wv[, -1]))
+colnames(mat_wv) <- cnames
+#--
+res <- PCA(mat_wv)
+fviz_screeplot(res)
+fviz_pca_biplot(res)
+#--
+cormat <- cor(mat_wv)
+dim(cormat)
+df_cor <- as.data.frame(res$var$cor)
+q <- quantile(df_cor$Dim.1, probs = 0.85)
+ind <- which(df_cor$Dim.1 > q)
+df_cor$Var <- row.names(df_cor)
+df_PosCor <- df_cor[ind, c("Var", "Dim.1")]
+df_PosCor <- df_PosCor[order(df_PosCor$Dim.1, decreasing = T),]
+df_PosCor$Var <- NULL
+df_PosCor
+q <- quantile(-df_cor$Dim.1, probs = 0.85)
+ind <- which(-df_cor$Dim.1 > q)
+df_NegCor <- df_cor[ind, c("Var", "Dim.1")]
+df_NegCor <- df_NegCor[order(-df_NegCor$Dim.1, decreasing = T),]
+df_NegCor$Var <- NULL
+df_NegCor
+
+
+
+
 df_dtm <- tidy(dtm)
 df_dtm <- df_dtm %>% spread(term, count)
 df_dtm[is.na(df_dtm)] <- 0
 df_dtm$document <- df$JOB_CLASS_TITLE
 cormat <- cor(as.matrix(df_dtm[, -1]))
+#cormat <- cor(t(as.matrix(df_dtm[, -ncol(df_dtm)])))
 image(cormat)
 #--
-mat_dtm <- as.matrix(df_dtm[, -1])
+mat_dtm <- as.matrix(df_dtmTri[, -1])
 doc_labels <- df$JOB_CLASS_TITLE #str_trunc(df$JOB_CLASS_TITLE, 100, ellipsis = "")
 ind_dup <- which(duplicated(doc_labels))
 doc_labels[ind_dup] <- paste(doc_labels[ind_dup], "(dup)")
@@ -476,12 +546,30 @@ res <- PCA(mat_dtm)
 #summary(res)
 fviz_pca_biplot(res)
 fviz_screeplot(res)
-
+df_cor <- as.data.frame(res$var$cor)
+q <- quantile(df_cor$Dim.1, probs = 0.85)
+ind <- which(df_cor$Dim.1 > q)
+df_cor$Var <- row.names(df_cor)
+df_PosCor <- df_cor[ind, c("Var", "Dim.1")]
+df_PosCor <- df_PosCor[order(df_PosCor$Dim.1, decreasing = T),]
+df_PosCor$Var <- NULL
+df_PosCor
+q <- quantile(-df_cor$Dim.1, probs = 0.85)
+ind <- which(-df_cor$Dim.1 > q)
+df_NegCor <- df_cor[ind, c("Var", "Dim.1")]
+df_NegCor <- df_NegCor[order(-df_NegCor$Dim.1, decreasing = T),]
+df_NegCor$Var <- NULL
+df_NegCor
 #=============================================
 max_graph <- 12
-in_mat <- as.matrix(df_dtm[, -1])
+in_mat <- as.matrix(df_dtmTri[, -1])
 n_ts <- ncol(in_mat)
 
+
+cormat <- cor(as.matrix(df_dtmTri[, -1]))
+
+#cormat <- cor(as.matrix(df_dtm[, -1]))
+#cormat <- cor(t(as.matrix(df_dtm[, -1])))
 e <- eigen(cormat)
 eig_vectors <- e$vectors
 lam_cor <- e$values
@@ -535,18 +623,203 @@ if(ncol(collModes) > max_graph){
   n_collModes_to_graph <- max_graph
 }
 #-----------------------------
+library(mclust)
+# Model-based-clustering (takes a little bit -- Correctly chooses 9 as optimal number of clusters!)
+class(df_dtmTri)
+df_dtm <- as.data.frame(df_dtmTri)
+mc <- Mclust(t(as.matrix(df_dtm[, -1])))
+# Print a summary
+summary(mc)
+
+fviz_cluster(mc, frame.type = "norm", geom = "point")
+
+df_mc <- data.frame(mcClust = mc$classification, Word = colnames(df_dtm)[-1])
+df_mc[which(df_mc$mcClust == 1), ]
+df_mc[which(df_mc$mcClust == 2), ]
+df_mc$Word[which(df_mc$mcClust == 3)]
+df_mc[which(df_mc$mcClust == 4), ]
+df_mc[which(df_mc$mcClust == 5), ]
+
 # Contributions of items to each mode
-df_plot <- as.data.frame(collModes)
+df_plot <- as.data.frame(collModes^2)
 gathercols <- colnames(df_plot)
 df_plot$Word <- colnames(in_mat)
+df_plot <- merge(df_plot, df_mc, by = "Word")
 df_plot <- df_plot %>% gather_("Mode", "Contribution", gathercols)
-gg <- ggplot(df_plot, aes(x = Word, y = Contribution))
+df_plot <- subset(df_plot, Mode %in% c("V1", "V2", "V3", "V4"))
+#df_plot <- subset(df_plot, Mode %in% c("V5", "V6", "V7", "V8"))
+df_plot$mcClust <- as.factor(df_plot$mcClust)
+xx <- df_plot$mcClust
+df_plot$Word <- factor(df_plot$Word, levels = unique(df_plot$Word[order(xx)]))
+gg <- ggplot(df_plot, aes(x = Word, y = Contribution, fill = mcClust))
 gg <- gg + geom_bar(stat = "identity", position = "dodge")
 #gg <- gg + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
-gg <- gg +  facet_wrap(~ Mode, ncol = 3)
-gg <- gg + theme(axis.text.x = element_blank(),
-                 axis.title.x = element_blank())
+gg <- gg +  facet_wrap(~ Mode, ncol = 1)
+# gg <- gg + theme(axis.text.x = element_blank(),
+#                  axis.title.x = element_blank())
+gg <- gg + theme(axis.text.x = element_text(angle = 75, hjust = 1))
 gg
+#===============================================
+# Main contributors to each mode
+# select_main_contributors <- function(colvec, col_order, p_thresh){
+#   abs_colvec <- abs(colvec)
+#   q <- quantile(abs_colvec, p = p_thresh)
+#   ind_main <- which(abs_colvec >= q)
+#   top_contrib_absval <- sort(abs_colvec[ind_main], decreasing = T)
+#   ind_match <- match(top_contrib_absval, abs_colvec)
+#   top_contrib_name <- col_order[ind_match]
+#   top_contrib_val <- colvec[ind_match]
+#   df_out <- data.frame(Top_contributor = top_contrib_name, Eigvec_value = top_contrib_val)
+#   return(df_out)
+# }
+# p_thresh <- .90
+# mainContrib_list <- apply(collModes[, 2:ncol(collModes)], 2,
+#                           function(x) select_main_contributors(x, colnames(df_dtm[-1]), p_thresh))
+# for(m in 1:(n_collModes - 1)){mainContrib_list[[m]]$Mode <- m + 1}
+# df_mainContributors <- do.call(rbind, mainContrib_list)
+# print("Main contributors to each non-leading mode:")
+# print(df_mainContributors)
+# 
+# 
+# ggplot(aes(term, beta, fill = factor(topic))) +
+#   geom_col(show.legend = FALSE) +
+#   facet_wrap(~ topic, scales = "free") +
+#   coord_flip()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+df_diversity <- read.csv("CityofLA/Job_Applicants_by_Gender_and_Ethnicity.csv", stringsAsFactors = F)
+df_diversity$gender_score <- df_diversity$Female / (df_diversity$Female + df_diversity$Male)
+hist(df_diversity$gender_score)
+df_diversity[, c(8:13)] <- df_diversity[, c(8:13)] / df_diversity$Apps.Received
+nrow(df_diversity)
+df_diversity$Job.Description[-1] <- gsub("[^A-Z ]|ARCHIVE", "", df_diversity$Job.Description[-1])
+df_diversity$Job.Description[-1] <- str_trim(df_diversity$Job.Description[-1])
+df_diversity$Job.Description[1] <- "311 DIRECTOR"
+colnames(df_diversity)[3] <- "JOB_CLASS_TITLE"
+df_x <- merge(df_diversity, df, by = "JOB_CLASS_TITLE")
+df_x$ENTRY_SALARY_GEN <- as.numeric(as.character(df_x$ENTRY_SALARY_GEN))
+plot(df_x$ENTRY_SALARY_GEN, df_x$American.Indian..Alaskan.Native)
+class(df_x$ENTRY_SALARY_GEN)
+
+colnames(df_x)
+
+df_x$race_cv <- apply(df_x[, c(8:13)], 1, sd) / apply(df_x[, c(8:13)], 1, mean)
+
+df_x$mean_growth_potential_GEN <- as.numeric(as.character(df_x$mean_growth_potential_GEN))
+df_x$mean_entry_salaries_all_GEN <- as.numeric(as.character(df_x$mean_entry_salaries_all_GEN))
+plot(df_x$race_cv, df_x$mean_entry_salaries_all_GEN)
+plot(df_x$race_cv, df_x$mean_entry_salaries_all_DWP)
+plot(df_x$race_cv, df_x$cv_growth_potential_GEN)
+plot(df_x$race_cv, df_x$cv_entry_salaries_all_GEN)
+hist(df_x$cv_growth_potential_GEN)
+hist(df_x$mean_growth_potential_DWP)
+
+
+df_x1 <- merge(df, df_mc, by = "JOB_CLASS_TITLE")
+View(df_x1[which(df_x1$mcClust == 2), ])
+
+df_x1$ENTRY_SALARY_GEN <- as.numeric(as.character(df_x1$ENTRY_SALARY_GEN))
+df_x1$ENTRY_SALARY_DWP <- as.numeric(as.character(df_x1$ENTRY_SALARY_DWP))
+
+hist(df_x1$mean_entry_salaries_scale_GEN[which(df_x1$mcClust == 1)])
+hist(df_x1$mean_entry_salaries_scale_GEN[which(df_x1$mcClust == 2)])
+
+length(df_x1$mean_entry_salaries_scale_GEN[which(df_x1$mcClust == 1)])
+length(df_x1$mean_entry_salaries_scale_GEN[which(df_x1$mcClust == 2)])
+u <- df_x1$mean_entry_salaries_scale_DWP[which(df_x1$mcClust == 1)]
+length(u[-which(is.na(u))])
+u <- df_x1$mean_entry_salaries_scale_DWP[which(df_x1$mcClust == 2)]
+length(u[-which(is.na(u))])
+
+nrow()
+
+hist(df_x1$mean_entry_salaries_scale_DWP[which(df_x1$mcClust == 1)])
+hist(df_x1$ENTRY_SALARY_GEN[which(df_x1$mcClust == 1)])
+hist(df_x1$ENTRY_SALARY_DWP[which(df_x1$mcClust == 1)])
+
+
+hist(df_x1$mean_entry_salaries_scale_GEN[which(df_x1$mcClust == 1)])
+hist(df_x1$mean_entry_salaries_scale_DWP[which(df_x1$mcClust == 1)])
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 #-
 # df_contrib <- data.frame(ts_id = col_order, Contribution)
 # df_contrib <- cbind(df_contrib, df_group[, c(2:ncol(df_group))])
@@ -673,9 +946,14 @@ gg
 #-------------------------------------------
 #-------------------------------------------
 #-------------------------------------------
-
+#corpus <- Corpus(DirSource("CityofLA/Job Bulletins/"))
+corpus_COCA <- Corpus(DirSource("CityofLA/COCA/"))
+#summary(corpus)  #check what went in
+corpus_COCA <- processCorpus(corpus_COCA)
+#corpus[[1]]$content
+write.table(corpus_COCA$content, "corp_COCA.txt", sep="\t")
 library(rword2vec)
-#model=word2vec(train_file = "corp.txt",output_file = "vec.bin",binary=1)
+#model=word2vec(train_file = "corp_COCA.txt",output_file = "vec.bin",binary=1)
 dist=distance(file_name = "vec.bin",search_word = "engin",num = 20)
 word_analogy(file_name = "vec.bin",search_words = "engin senior environ",num = 20)
 word2phrase(train_file = "corp.txt",output_file = "vec.txt")
@@ -773,8 +1051,8 @@ gg
 model=word2vec(train_file = "vec.txt",output_file = "vec2.bin",binary=1)
 library(wordVectors)
 # write.table(corpus$content, "corp.txt", sep="\t")
-# prep_word2vec(origin = "corp.txt", destination = "corp2.txt", lowercase = T, bundle_ngrams = 3)
-# model = train_word2vec("corp.txt", "corp_vectors.bin", vectors = 200, threads = 4, window = 12, iter = 5, negative_samples = 0, force = T)
+# prep_word2vec(origin = "corp_COCA.txt", destination = "corp2.txt", lowercase = T, bundle_ngrams = 3)
+# model = train_word2vec("corp_COCA.txt", "corp_vectors.bin", vectors = 200, threads = 4, window = 12, iter = 5, negative_samples = 0, force = T)
 #rm(corpus); gc()
 model = read.vectors("corp_vectors.bin")
 #-------------------------------------------
@@ -831,7 +1109,7 @@ plot(model, perplexity = 50)
 
 library(topicmodels)
 class(dtm)
-lda <- LDA(dtm, k =9, control = list(seed = 1234))
+lda <- LDA(dtm, k = 3, control = list(seed = 1234))
 lda
 topics <- tidy(lda, matrix = "beta")
 topics
@@ -1060,6 +1338,58 @@ gg <- gg +  facet_wrap(~ Mode, nrow = 2)
 gg <- gg + theme(axis.text.x = element_blank(),
                  axis.title.x = element_blank())
 print(gg)
+
+
+
+
+
+
+
+
+fviz_nbclust(df, kmeans, method = "gap_stat")
+#optimal clustering method
+# Compute clValid (takes a longer while)
+library(clValid)
+intern <- clValid(df_dtm[, -1], nClust = 2:4, clMethods = c("hierarchical","kmeans","pam"),
+                  validation = "internal")
+# Summary
+summary(intern)
+
+#Determing clusterability of data
+get_clust_tendency(df_dtm[, -1], n = 50, gradient = list(low = "steelblue",  high = "white"))
+
+#Basic kmeans clustering
+km.res <- kmeans(df_dtm[, -1], 4, nstart = 25)
+# Visualize
+fviz_cluster(km.res, data = df_dtm[, -1], frame.type = "convex") + theme_minimal()
+#Partition clustering (I like better than kmeans -- almost same but gives cleaner separation of clusters)
+library(cluster)
+pam.res <- pam(df_dtm[, -1], 3)
+# Visualize
+fviz_cluster(pam.res)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 #-
 # df_contrib <- data.frame(ts_id = col_order, Contribution)
 # df_contrib <- cbind(df_contrib, df_group[, c(2:ncol(df_group))])
