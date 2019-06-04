@@ -1,0 +1,819 @@
+options(warn = -1); options(scipen = 999)
+#======================================================
+#dir <- '../input/cityofla//CityofLA//Job Bulletins/'
+dir <- "CityofLA/Job Bulletins/"
+#dir <- "D:/OneDrive - CGIAR/Documents/kaggle/CityofLA/Job Bulletins/"
+#======================================================
+# Required libraries, load yourselves!
+pkgs <- c("tidyverse", "tidytext", "tm")
+for (pkg in pkgs) {
+  if (! (pkg %in% rownames(installed.packages()))){install.packages(pkg)}
+  library(pkg, character.only = TRUE)
+}
+rm(pkgs, pkg)
+gc()
+#======================================================
+# Define functions
+# Bulletin lines getter
+get_bulletinLines <- function(file_name, dir, quietly = F){
+  if(!quietly){print(file_name)}
+  bulletin_lines <- readLines(paste0(dir, file_name))
+  bulletin_lines <- as.character(unlist(bulletin_lines))
+  bulletin_lines <- str_trim(bulletin_lines)
+  ind_rm <- which(bulletin_lines == "")
+  if(length(ind_rm) != 0){
+    bulletin_lines <- bulletin_lines[-ind_rm]
+    
+  }
+  return(bulletin_lines)
+}
+
+get_jobTitle_fromBulletin <- function(bulletin_lines, gsub_pattern){
+  #------------------------------
+  # This snippet required since some job titles appear on second line
+  # of bulletin, with "CAMPUS INTERVIEWS ONLY" taking the first line.
+  jobTitle_line <- ifelse(length(grep("CAMPUS INTERVIEWS ONLY", bulletin_lines[1])) == 0,
+                          bulletin_lines[1], bulletin_lines[2])
+  # The snippet can be removed if job title always appears on first line of bulletin.
+  #------------------------------
+  str <- gsub(gsub_pattern, "", jobTitle_line)
+  jobTitle_from_bulletin <- str_trim(str)
+  return(jobTitle_from_bulletin)
+}
+
+
+get_openDate <- function(bulletin_lines, gsub_pattern = "\\b[^0-9-]"){
+  ind_openDate <- grep("Open Date", bulletin_lines, ignore.case = T)
+  xx <- bulletin_lines[ind_openDate[1]]
+  open_date <- gsub(gsub_pattern, "", xx)
+  #if(nchar(open_date) > 8){open_date <- substr(open_date, 5, 12)} #"MARINE ENVIRONMENTAL SUPERVISOR" "SENIOR COMPUTER OPERATOR 1428 102017.txt" "SUPERVISING CRIMINALIST 2235 030416.txt" 
+  return(open_date)
+}
+
+
+
+# Job class number from bulletin getter function
+get_jobClassNum_fromBulletin <- function(bulletin_lines){
+  ind_line <- grep("\\d{4}", bulletin_lines[1:3])
+  if(length(ind_line) != 0){
+    ind_line <- ind_line[1]
+    job_class_num <- gsub(".*(\\d{4}).*", "\\1", bulletin_lines[ind_line])
+    jobClassNum_from_bulletin <- str_trim(job_class_num)
+  }else{
+    jobClassNum_from_bulletin <- NA
+  }
+  return(jobClassNum_from_bulletin)
+}
+
+
+
+
+# Bulletin section headings getter
+get_sectionHeadings <- function(bulletin_lines,
+                                grep_pattern = "^[A-Z :/,\t\\(\\)]+$"){
+  ind_headings <- grep(grep_pattern, bulletin_lines)
+  section_headings <- bulletin_lines[ind_headings]
+  section_headings <- str_trim(section_headings)
+  return(section_headings)
+}
+
+# Section text getter
+get_sectionTxt <- function(section_name, bulletin_lines, section_headings){
+  ind_section_start <- grep(section_name, bulletin_lines) + 1
+  if(length(ind_section_start) != 0){
+    str_section_end <- section_headings[grep(section_name, section_headings) + 1]
+    ind_section_end <- grep(str_section_end, bulletin_lines) - 1
+    ind_rm <- which(ind_section_end < ind_section_start)
+    if(length(ind_rm) != 0){
+      ind_section_end <- ind_section_end[-ind_rm]
+    }
+    ind_section_end <- ind_section_end[1]
+    str_section <- bulletin_lines[ind_section_start:ind_section_end]
+    str_section <- paste(str_section, collapse = " ")
+  }else{
+    str_section <- ""
+  }
+}
+
+
+
+
+
+
+
+# Comprehensive salary info getter
+get_salaries <- function(str_annSalary){
+  str_annSalary <- gsub(", ", ",", str_annSalary) # WATER UTILITY SUPERINTENDENT
+  str_annSalary <- gsub(" ,", ",", str_annSalary)
+  str_annSalary <- gsub(",\\$", " \\$", str_annSalary)
+  #--
+  # Get all salary scales and/or flat-rated salaries from salary text
+  annSalaries_raw <- removePunctuation(str_annSalary) # Remove all but numbers and "to" #\\(.*\\),;\\$
+  salary_scales <- unlist(str_extract_all(annSalaries_raw, "[0-9]+ to [0-9]+")) # Keep only phrases of type "[some number] to [some number]"
+  salaries_flat <- str_trim(gsub("[0-9]+ to [0-9]+|[a-zA-z]+", "", annSalaries_raw)) # Keep all except phrases of type "[some number] to [some number]"
+  salaries_flat <- unlist(str_split(salaries_flat, " "))
+  ind_rm <- which(salaries_flat == "")
+  if(length(ind_rm) != 0){salaries_flat <- salaries_flat[-ind_rm]}
+  #----------------------------------------------
+  # The following snippet is needed to handle edge case "BOILERMAKER 3735 110714.txt"
+  # which has a 5 figure salary expressed to 2 decimal places.
+  # The snippet removes the 2 decimal places.
+  if(!is.null(salaries_flat)){
+    if(length(salaries_flat) != 0){
+      if(nchar(salaries_flat) == 7){
+        salaries_flat <- gsub(".{2}$", "", salaries_flat)
+      }
+    }
+  }
+  # The above snippet can be removed if all input files have salaries
+  # rounded to nearest dollar (no decimal places).
+  #----------------------------------------------
+  # Number of flat rated salaries and salary scales
+  #annSalaries_all <- as.numeric(annSalaries_all)
+  n_salary_scales <- length(salary_scales)
+  n_flat_rated_salaries <- length(salaries_flat)
+  if(n_salary_scales + n_flat_rated_salaries > 0){
+    # Deal with salary scales
+    if(n_salary_scales > 0){
+      ind_even <- 2 * n_salary_scales
+      ind_odd <- 2 * n_salary_scales - 1
+      salary_scale_bounds <- sapply(salary_scales, str_split, "to")
+      salary_scale_bounds <- as.numeric(unlist(salary_scale_bounds))
+      # Entry level salary
+      entry_salaries_scale <- salary_scale_bounds[seq(1, ind_odd, 2)]
+      out_entry_salaries_scale <- as.character(paste(entry_salaries_scale, collapse = ", "))
+      mean_entry_salaries_scale <- mean(entry_salaries_scale)
+      cv_entry_salaries_scale <- sd(entry_salaries_scale) / mean_entry_salaries_scale
+      # Salary cap
+      salary_caps <- salary_scale_bounds[seq(2, ind_even, 2)]
+      out_salary_caps <- as.character(paste(salary_caps, collapse = ", "))
+      mean_salary_caps <- mean(salary_caps)
+      cv_salary_caps <- sd(salary_caps) / mean_salary_caps
+      # Salary growth potential
+      growth_potential <- diff(salary_scale_bounds)[seq(1, ind_odd, 2)]
+      growth_potential_all <- paste(as.character(growth_potential), collapse = ", ")
+      mean_growth_potential <- mean(growth_potential)
+      cv_growth_potential <- sd(growth_potential) / mean_growth_potential
+    }else{
+      entry_salaries_scale <- NA
+      out_entry_salaries_scale <- NA
+      mean_entry_salaries_scale <- NA
+      cv_entry_salaries_scale <- NA
+      out_salary_caps <- NA
+      mean_salary_caps <- NA
+      cv_salary_caps <- NA
+      growth_potential_all <- 0
+      mean_growth_potential <- 0
+      cv_growth_potential <- NA
+    }
+    # Deal with flat-rated salaries
+    if(n_flat_rated_salaries > 0){
+      out_entry_salaries_flat <- as.character(paste(salaries_flat, collapse = ", "))
+      entry_salaries_flat <- as.numeric(salaries_flat)
+      mean_entry_salaries_flat <- mean(entry_salaries_flat)
+      cv_entry_salaries_flat <- sd(entry_salaries_flat) / mean_entry_salaries_flat
+    }else{
+      entry_salaries_flat <- NA
+      out_entry_salaries_flat <- NA
+      mean_entry_salaries_flat <- NA
+      cv_entry_salaries_flat <- NA
+    }
+    # Combine entry level salaries, flat-rated and scale based
+    entry_salaries_all <- c(entry_salaries_flat, entry_salaries_scale)
+    ind_rm <- which(is.na(entry_salaries_all))
+    if(length(ind_rm) != 0){entry_salaries_all <- entry_salaries_all[-ind_rm]}
+    mean_entry_salaries_all <- mean(entry_salaries_all, na.rm = T)
+    cv_entry_salaries_all <- sd(entry_salaries_all, na.rm = T) / mean_entry_salaries_all
+    out_entry_salaries_all <- as.character(paste(entry_salaries_all, collapse = ", "))
+    #----------------------------------------------
+  }else{
+    n_salary_scales <- NA
+    n_flat_rated_salaries <- NA
+    out_entry_salaries_scale <- NA
+    out_salary_caps <- NA
+    out_entry_salaries_flat <- NA
+    out_entry_salaries_all <- NA
+    mean_entry_salaries_all <- NA
+    cv_entry_salaries_all <- NA
+    mean_entry_salaries_scale <- NA
+    cv_entry_salaries_scale <- NA
+    salary_caps <- NA
+    mean_salary_caps <- NA
+    cv_salary_caps <- NA
+    mean_entry_salaries_flat <- NA
+    cv_entry_salaries_flat <- NA
+    growth_potential_all <- NA
+    mean_growth_potential <- NA
+    cv_growth_potential <- NA
+  }
+  #----------------------------------------------
+  df_salary_info <- data.frame(n_salary_scales, n_flat_rated_salaries,
+                               ENTRY_SALARY = out_entry_salaries_all,
+                               mean_entry_salaries_all,
+                               cv_entry_salaries_all,
+                               entry_salaries_scale = out_entry_salaries_scale, mean_entry_salaries_scale, cv_entry_salaries_scale,
+                               entry_salaries_flat = out_entry_salaries_flat, mean_entry_salaries_flat, cv_entry_salaries_flat,
+                               salary_caps = out_salary_caps, mean_salary_caps, cv_salary_caps,
+                               growth_potential_all, mean_growth_potential, cv_growth_potential)
+  
+  return(df_salary_info)
+}
+
+#======================================================
+# DATA CLEANING
+# 1) Compare job titles in file names with job titles found inside the file.
+# Look for mislabeled or duplicate files.
+file_names <- list.files(dir)
+gsubPattern_in_fileName <- "[0-9\\._]|\\b[A-Z][a-z]+|[a-z]|\\s*\\([^\\)]+\\)|.txt|\\bREV\\b|REVISED|FINAL|\\bDRAFT\\b|TRACK CHANGES"
+gsubPattern_in_txt <- "\\'|\\s*\\([^\\)]+\\)"
+jobTitle_from_fileName <- c()
+jobTitle_from_txt <- c()
+for(i in 1:length(file_names)){
+  file_name <- file_names[i]
+  str <- gsub(gsubPattern_in_fileName, "", file_name)
+  jobTitle_from_fileName[i] <- str_trim(str)
+  #----------------
+  bulletin_lines <- get_bulletinLines(file_name, dir, quietly = T)
+  jobTitle_from_txt[i] <- get_jobTitle_fromBulletin(bulletin_lines, gsubPattern_in_txt)
+  
+}
+
+ind_dup <- which(duplicated(jobTitle_from_fileName))
+duplicated_jobTitles_fileName <- jobTitle_from_fileName[ind_dup]
+print(duplicated_jobTitles_fileName)
+# So, there are two job titles that are found in more than one file name.
+ind_dup <- which(duplicated(jobTitle_from_txt))
+duplicated_jobTitles_txt <- jobTitle_from_txt[ind_dup]
+print(duplicated_jobTitles_txt)
+# So, there are five job titles that are found in more than one file. Two of these
+# are the same ones we just saw repeated in the file names.
+#
+# Let's compare the duplicates' job titles as displayed in the file names vs.
+# as displayed inside the files:
+df_look <- data.frame(jobTitle_from_fileName, jobTitle_from_txt)
+print(df_look[which(jobTitle_from_txt %in% duplicated_jobTitles_txt), ])
+# There is a mismatch between job titles as found in the file names vs.
+# as found inside the files for three jobs:
+# "ANIMAL CARE TECHNICIAN SUPERVISOR"
+# "SENIOR EXAMINER OF QUESTIONED DOCUMENTS"
+# "WASTEWATER COLLECTION SUPERVISOR"
+# Upon inspection of the file contents, it turns out that these are mislabeled
+# duplicates of, respectively, the "WATER TREATMENT OFFICER", "WATER UTILITY SUPERINTENDENT",
+# and "WASTEWATER TREATMENT OPERATOR" bulletins. Let's go ahead and delete these.
+remove_these <- c("ANIMAL CARE TECHNICIAN SUPERVISOR",
+                  "SENIOR EXAMINER OF QUESTIONED DOCUMENTS",
+                  "WASTEWATER COLLECTION SUPERVISOR")
+ind_rm <- which(jobTitle_from_fileName %in% remove_these)
+file_names <- file_names[-ind_rm]
+# 
+# There are also two duplicates without a mismatch between the file name
+# and file content versions of the job title:
+# "CHIEF CLERK POLICE"
+# "SENIOR UTILITY SERVICES SPECIALIST"
+# Upon inspection of the bulletin folder, there are two versions of each 
+# of these bulletins, one being more recent than the other.
+# The job class number also differs between the two versions.
+# We assume the host prefers to keep the more recent versions.
+# To find out which is more recent we have to extract the opening dates.
+ind_find <- grep("CHIEF CLERK POLICE|SENIOR UTILITY SERVICES SPECIALIST", file_names)
+dup_files <- file_names[ind_find]
+openDate_vec <- c()
+for(i in 1:length(dup_files)){
+  dupFile_name <- dup_files[i]
+  bulletin_lines <- get_bulletinLines(dupFile_name, dir, quietly = T)
+  openDate_vec[i] <- get_openDate(bulletin_lines)
+  
+}
+df_look <- data.frame(dup_file_name = dup_files, open_date = openDate_vec)
+print(df_look)
+# So, in both cases, there is a bulletin with a 2015 open date and one with 
+# a 2018 open date. Assuming the more recent version is more valid, let's
+# delete the 2015 versions.
+dupFiles_old <- as.character(df_look$dup_file_name[c(1, 4)])
+ind_rm <- which(file_names %in% dupFiles_old)
+file_names <- file_names[-ind_rm]
+# jobTitle_from_fileName <- jobTitle_from_fileName[-ind_rm]
+# jobTitle_from_txt <- jobTitle_from_txt[-ind_rm]
+#----------------------------------------------
+# In the last two cases, there were issues with the job class number.
+# This motivates a closer look at job class numbers in all bulletins.
+#
+# In analysis outside this kernel we found that the job class number
+# occurs in the second line of most bulletins. However, there are several
+# edge cases where it occurs in the first or third line, and sometimes it
+# is repeated much farther down in the bulletin. We design our "get job 
+# class number" function accordingly.
+#
+# Get job class numbers from all file names and file contents to check
+# for duplicates and disagreement between number in file name and 
+# number in contents.
+jobClassNum_from_fileName <- c()
+jobClassNum_from_txt <- c()
+for(i in 1:length(file_names)){
+  file_name <- file_names[i]
+  #--------------
+  jobClassNum_from_fileName[i] <- gsub(".*\\s(\\d{4})\\s.*", "\\1", file_name)
+  #--------------
+  bulletin_lines <- get_bulletinLines(file_name, dir, quietly = T)
+  jobClassNum_from_txt[i] <- get_jobClassNum_fromBulletin(bulletin_lines)
+}
+ind_dup <- which(duplicated(jobClassNum_from_fileName))
+duplicated_jobClassNum_fileName <- jobClassNum_from_fileName[ind_dup]
+print(duplicated_jobClassNum_fileName)
+print(file_names[ind_dup])
+# So, there is one job class number, "7260", that is duplicated in the
+# file names. Let's see both of the files that have this job class number
+# in their file name.
+ind_look <- grep("7260", file_names)
+df_look <- data.frame(file_name = file_names[ind_look],
+                      jobClassNum_from_fileName = jobClassNum_from_fileName[ind_look],
+                      jobClassNum_from_txt = jobClassNum_from_txt[ind_look])
+print(df_look)
+# The AIRPORT MANAGER job class number in its file name agrees with 
+# its number in the file contents. Not so for the PRINCIPAL DEPUTY CONTROLLER.
+# This suggests that the job class number found in the file name of the 
+# PRINCIPAL DEPUTY CONTROLLER bulletin is incorrect. It should be the same
+# as the number inside the file (9653).
+#
+# What about duplicate job class numbers inside the files?
+ind_dup <- which(duplicated(jobClassNum_from_txt))
+duplicated_jobClassNum_txt <- jobClassNum_from_txt[ind_dup]
+print(duplicated_jobClassNum_txt)
+print(file_names[ind_dup])
+# So, there are no file contents with duplicate job class numbers.
+#
+# We assume from here on out that the job class number found in the bulletin
+# is more valid than the one found in the file name. Hence no cleaning action
+# is required here. Erroneous job class numbers in the file names will not
+# affect our .csv file.
+#
+# Nonetheless, it might be of interest to the host to know how many instances of 
+# disagreement there are between file name job class numbers and file content 
+# job class numbers. So we pause to check:
+test <- c()
+for(i in 1:length(jobClassNum_from_txt)){
+  test[i] <- identical(jobClassNum_from_txt[i], jobClassNum_from_fileName[i])
+}
+ind_disagree <- which(!test)
+df_look <- data.frame(file_name = file_names[ind_disagree],
+                      jobClassNum_from_fileName = jobClassNum_from_fileName[ind_disagree],
+                      jobClassNum_from_txt = jobClassNum_from_txt[ind_disagree])
+print(df_look)
+# So, there are thirteen bulletins with disagreement between the file name
+# and file content. We see here that in most of these cases this is because
+# no job class number is reported in the file name.
+
+# Our job class number getter allows for NA output when no job
+# class number is found. Are there any such instances?
+ind_NA <- which(is.na(jobClassNum_from_txt))
+print(file_names[ind_NA])
+# Yes, the "Vocational Worker  DEPARTMENT OF PUBLIC WORKS.txt" bulletin
+# has no job class number--neither in the file name nor in the file contents.
+# Upon closer inspection, this bulletin is anomalous in other ways, particularly
+# in its structure and salary information. It is too extreme a case for our
+# code to accomodate, and so we will remove it temporarily and hand code it
+# into the .csv output file at the end. This is the ONLY file that we will
+# hand code.
+special_case <- "Vocational Worker  DEPARTMENT OF PUBLIC WORKS.txt"
+ind_rm <- which(file_names == special_case)
+file_names <- file_names[-ind_rm]
+length(file_names)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# file_names[grep("SYSTEMS", file_names)]
+# file_name <- file_names[23]
+# file_name <- "SYSTEMS ANALYST 1596 102717.txt"
+parse_bulletin <- function(file_name, dir){
+  print(file_name)
+  bulletin_lines <- get_bulletinLines(file_name, dir, quietly = F)
+  section_headings <- get_sectionHeadings(bulletin_lines)
+  #---------------------------------------------
+  # Job class title
+  # job_class_title <- bulletin_lines[1]
+  # job_class_title <- gsub("[0-9\\(\\)\\.txt]|REV|REVISED|[a-z]", "", file_name)
+  # job_class_title <- str_trim(job_class_title)
+  job_title <- get_jobTitle_fromBulletin(bulletin_lines, gsub_pattern = "\\'|\\s*\\([^\\)]+\\)")
+  #---------------------------------------------
+  # Job class number (taken from inside file)
+  # job_class_no <- bulletin_lines[grep("Class code", bulletin_lines, ignore.case = T)[1]]
+  # job_class_no <- gsub("[^0-9]", "", job_class_no)
+  # if(nchar(job_class_no) > 4){job_class_no <- substr(job_class_no, 1, 4)} #"MARINE ENVIRONMENTAL SUPERVISOR" "SENIOR COMPUTER OPERATOR 1428 102017.bulletin_lines" "SUPERVISING CRIMINALIST 2235 030416.txt" 
+  job_class_num <- get_jobClassNum_fromBulletin(bulletin_lines)
+  #---------------------------------------------
+  # Opening date
+  # ind_openDate <- grep("Open Date", bulletin_lines, ignore.case = T)
+  # xx <- bulletin_lines[ind_openDate[1]]
+  # open_date <- gsub("\\b[^0-9-]", "", xx)
+  # if(nchar(open_date) > 8){open_date <- substr(open_date, 5, 12)} #"MARINE ENVIRONMENTAL SUPERVISOR" "SENIOR COMPUTER OPERATOR 1428 102017.txt" "SUPERVISING CRIMINALIST 2235 030416.txt" 
+  open_date <- get_openDate(bulletin_lines)
+  #---------------------------------------------
+  # Requirements
+  str_reqMinquals <- get_sectionTxt(section_name = "REQUIREMENT",
+                                    bulletin_lines,
+                                    section_headings)
+  #---------------------------------------------
+  # Duties
+  str_Duties <- get_sectionTxt(section_name = "DUTIES",
+                               bulletin_lines,
+                               section_headings)
+  #---------------------------------------------
+  # Process Notes
+  str_procNotes <- get_sectionTxt(section_name = "PROCESS NOTES",
+                               bulletin_lines,
+                               section_headings)
+  #---------------------------------------------
+  # Selection Process
+  str_selectProc <- get_sectionTxt(section_name = "SELECTION PROCESS",
+                                  bulletin_lines,
+                                  section_headings)
+  #---------------------------------------------
+  # Selective Certification
+  str_selectCert <- get_sectionTxt(section_name = "SELECTIVE CERTIFICATION",
+                                   bulletin_lines,
+                                   section_headings)
+  
+  #--
+  # REQUIREMENT SET ID
+  #--
+  # REQUIREMENT SUBSET ID
+  #--
+  # EDUCATION YEARS
+  # grep("college|university", str_reqMinquals)
+  # grep("degree in", str_reqMinquals)
+  #--
+  # SCHOOL TYPE
+  #--
+  # EDUCATION MAJOR
+  #--
+  # EXPERIENCE LENGTH
+  #--
+  # FULL TIME PART TIME
+  #--
+  # EXP JOB CLASS TITLE
+  #--
+  # EXP_JOB_CLASS_ALT_RESP
+  #--
+  # EXP_JOB_CLASS_FUNCTION
+  #--
+  # COURSE_COUNT
+  #--
+  # COURSE_LENGTH
+  #--
+  # COURSE_SUBJECT
+  #--
+  # MISC_COURSE_DETAILS
+  #--
+  # DRIVERS_LICENSE_REQ
+  #--
+  # DRIV_LIC_TYPE
+  #--
+  # ADDTL_LIC
+  #--
+  # EXAM_TYPE
+  INT_DEPT_PROM <- ifelse(sum(str_detect(section_headings, "INTERDEPARTMENTAL PROMOTIONAL|INTERDEPARMENTAL PROMOTIONAL")) == 1, 1, 0)
+  DEPT_PROM <- ifelse(sum(str_detect(section_headings, "DEPARTMENTAL PROMOTIONAL|DEPARMENTAL PROMOTIONAL")) == 1, 1, 0)
+  OPEN <- ifelse(sum(str_detect(section_headings, "OPEN COMPETITIVE")) == 1, 1, 0)
+  OPEN_INT_PROM <- ifelse(INT_DEPT_PROM == 1 & OPEN == 1, 1, 0)
+  if(DEPT_PROM == 1){
+    exam_type <- "DEPT_PROM"
+  }else{
+    if(OPEN_INT_PROM == 1){
+      exam_type <- "OPEN_INT_PROM"
+    }else{
+      if(INT_DEPT_PROM == 1){exam_type <- "INT_DEPT_PROM"}
+      if(OPEN == 1){exam_type <- "OPEN"}
+    }
+  }
+  #--
+  # Salary
+  # Get salary text
+  salary_section_identifier <- "ANNUAL SALARY|ANNUALSALARY"
+  ind_annSalary_start <- grep(salary_section_identifier, bulletin_lines) + 1
+  str_annSalary_end <- section_headings[grep(salary_section_identifier, section_headings) + 1]
+  ind_annSalary_end <- grep(str_annSalary_end, bulletin_lines) - 1
+  ind_rm <- which(ind_annSalary_end < ind_annSalary_start)
+  if(length(ind_rm) != 0){ind_annSalary_end <- ind_annSalary_end[-ind_rm]}
+  ind_annSalary_end <- ind_annSalary_end[1]
+  str_annSalary <- bulletin_lines[ind_annSalary_start:ind_annSalary_end]
+  str_annSalary <- paste(str_annSalary, collapse = " ")
+  # Split into GEN and DWP salary text
+  str_annSalary_vec <- unlist(str_split(str_annSalary, "Power"))
+  str_annSalary_GEN <- str_annSalary_vec[1]
+  str_annSalary_DWP <- str_annSalary_vec[2]
+  if(is.na(str_annSalary_GEN)){str_annSalary_GEN <- NULL}
+  if(is.na(str_annSalary_DWP)){str_annSalary_DWP <- NULL}
+  #--
+  # Get GEN salary info
+  df_annSalary_GEN <- get_salaries(str_annSalary_GEN)
+  colnames(df_annSalary_GEN) <- paste0(colnames(df_annSalary_GEN), "_GEN")
+  # Get DWP salary info
+  df_annSalary_DWP <- get_salaries(str_annSalary_DWP)
+  colnames(df_annSalary_DWP) <- paste0(colnames(df_annSalary_DWP), "_DWP")
+  #=============================================
+  df_out <- data.frame(FILE_NAME = file_name,
+                       JOB_CLASS_TITLE = job_title,
+                       JOB_CLASS_NO = job_class_num,
+                       Requirements = str_reqMinquals,
+                       Duties = str_Duties,
+                       Process_Notes = str_procNotes,
+                       Selection_Process = str_selectProc,
+                       Selection_Certification = str_selectCert,
+                       EXAM_TYPE = exam_type,
+                       OPEN_DATE = open_date)
+  df_out <- as.data.frame(do.call(cbind, list(df_out, df_annSalary_GEN, df_annSalary_DWP)))
+  return(df_out)
+}
+#===============================================
+list_df <- map(file_names, parse_bulletin, dir)
+df <- do.call(rbind, list_df)
+
+
+
+
+
+
+for(i in 1:ncol(df)){
+  print(class(df[, i]))
+  if(class(df[, i]) == "factor"){
+    df[, i] <- as.character(df[, i])
+  }
+}
+
+class(df$Requirements)
+df$Str <- paste(df$Duties, df$Requirements)
+df$Str <- paste(df$Str, df$Process_Notes)
+
+removeURL <- function(x) gsub("http:[[:alnum:]]*", "", x)
+processCorpus <- function (corpus)
+{
+  corpus <- tm_map(corpus, content_transformer(tolower))
+  corpus <- tm_map(corpus, removeNumbers)
+  corpus <- tm_map(corpus, content_transformer(removeURL))
+  corpus <- tm_map(corpus, removePunctuation, preserve_intra_word_dashes = TRUE)
+  corpus <- tm_map(corpus, removeWords, stopwords("english"))
+  corpus <- tm_map(corpus, stemDocument, language="english")
+  #corpus <- tm_map(corpus, stripWhitespace)
+  # corpus <- tm_map(corpus, function (x) {
+  #   gsub("\\s*(?<!\\B|-)\\d+(?!\\B|-)\\s*", "", x, perl = TRUE) })
+  #corpus <- tm_map(corpus, stripWhitespace)
+  return (corpus)
+}
+library(rJava)
+library(RWeka)
+
+corpus <- VCorpus(VectorSource(df$Str))
+#summary(corpus)  #check what went in
+corpus <- processCorpus(corpus)
+
+
+dtm <- DocumentTermMatrix(corpus) 
+dtm <- removeSparseTerms(dtm, 0.9)
+#Sys.setenv(JAVA_HOME="")
+TrigramTokenizer <- function(x) NGramTokenizer(x, Weka_control(min = 2, max = 3))
+dtm_trigram <- TermDocumentMatrix(corpus, control = list(tokenize = TrigramTokenizer))
+dtm_trigram <- removeSparseTerms(dtm_trigram, 0.9)
+inspect(dtm_trigram[1:5,1:5])
+
+df_dtmTri <- tidy(dtm_trigram)
+df_dtmTri <- df_dtmTri %>% spread(term, count)
+dim(df_dtmTri)
+df_dtmTri[is.na(df_dtmTri)] <- 0
+df_dtmTri$document <- df$JOB_CLASS_TITLE
+in_mat <- as.matrix(df_dtmTri[, -1])
+cormat <- cor(in_mat)
+image(cormat)
+
+max_graph <- 10
+
+e <- eigen(cormat)
+eig_vectors <- e$vectors
+lam_cor <- e$values
+lamcor_max <- max(lam_cor)
+N_t <- nrow(in_mat)
+N_c <- ncol(in_mat)
+Q <- N_t / N_c
+s_sq <- 1 - lamcor_max / N_c
+#s_sq <- 1
+lamrand_max <- s_sq * (1 + 1 / Q + 2 / sqrt(Q))
+lamrand_min <- s_sq * (1 + 1 / Q - 2 / sqrt(Q))
+lam <- seq(lamrand_min, lamrand_max, 0.001)
+dens_rand <- Q / (2 * pi * s_sq) * sqrt((lamrand_max - lam) * (lam - lamrand_min)) / lam
+df_e <- data.frame(values = lam_cor)
+#--
+gg <- ggplot() +
+  geom_density(data = df_e, aes(x = values, color = "Correlation Matrix")) +
+  #geom_histogram(data = df_e, aes(x = values), alpha = 0.2) +
+  geom_line(data = data.frame(x = lam, y = dens_rand), aes(x = x, y = y, color = "Random matrix")) +
+  coord_cartesian(xlim = c(0, ceiling(lamcor_max))) +
+  scale_colour_manual(name = "Eigenvalue density", 
+                      values = c(`Correlation Matrix` = "blue", `Random matrix` = "orange"))
+gg
+#-----------------------------
+# How many collective modes?
+ind_deviating_from_noise <- which(lam_cor > lamrand_max)
+collModes <- as.matrix(eig_vectors[, ind_deviating_from_noise])
+
+noiseModes <- as.matrix(eig_vectors[, -ind_deviating_from_noise])
+n_collModes <- ncol(collModes)
+#-----------------------------
+# Set sign of eigenvectors such that they
+# best conform to the input time series
+Modes <- in_mat %*% collModes
+ts_avg <- in_mat %*% rep(1, N_c) * 1 / N_c
+for(i in 1:n_collModes){
+  sse <- sum((Modes[, i] - ts_avg)^2)
+  sse_neg <- sum((-Modes[, i] - ts_avg)^2)
+  sse_vec <- c(sse, sse_neg)
+  if(which(sse_vec == min(sse_vec)) == 2){
+    collModes[, i] <- -collModes[, i]
+  }
+}
+#-----------------------------
+n_collModes_really <- n_collModes
+n_collModes_to_graph <- n_collModes
+collModes_really <- collModes
+print(paste("Number of collective modes: ", n_collModes))
+if(ncol(collModes) > max_graph){
+  collModes <- collModes[, 1:max_graph]
+  n_collModes_to_graph <- max_graph
+}
+#-----------------------------
+library(mclust)
+# Model-based-clustering (takes a little bit -- Correctly chooses 9 as optimal number of clusters!)
+#class(df_dtmTri)
+mc <- Mclust(t(in_mat))
+# Print a summary
+summary(mc)
+
+fviz_cluster(mc, frame.type = "norm", geom = "point")
+
+df_mc <- data.frame(mcClust = mc$classification, Word = colnames(df_dtmTri)[-1])
+df_mc[which(df_mc$mcClust == 1), 2]
+df_mc[which(df_mc$mcClust == 2), ]
+df_mc$Word[which(df_mc$mcClust == 3)]
+df_mc[which(df_mc$mcClust == 4), ]
+df_mc[which(df_mc$mcClust == 5), ]
+df_mc[which(df_mc$mcClust == 9), ]
+
+# Contributions of items to each mode
+df_plot <- as.data.frame(collModes^2)
+gathercols <- colnames(df_plot)
+df_plot$Word <- colnames(in_mat)
+df_plot <- merge(df_plot, df_mc, by = "Word")
+df_plot <- df_plot %>% gather_("Mode", "Contribution", gathercols)
+df_plot <- subset(df_plot, Mode %in% c("V1", "V2", "V3", "V4"))
+#df_plot <- subset(df_plot, Mode %in% c("V5", "V6", "V7", "V8"))
+df_plot$mcClust <- as.factor(df_plot$mcClust)
+xx <- df_plot$mcClust
+df_plot$Word <- factor(df_plot$Word, levels = unique(df_plot$Word[order(xx)]))
+gg <- ggplot(df_plot, aes(x = Word, y = Contribution, fill = mcClust))
+gg <- gg + geom_bar(stat = "identity", position = "dodge")
+#gg <- gg + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+gg <- gg +  facet_wrap(~ Mode, ncol = 1)
+# gg <- gg + theme(axis.text.x = element_blank(),
+#                  axis.title.x = element_blank())
+gg <- gg + theme(axis.text.x = element_text(angle = 75, hjust = 1))
+gg
+
+
+
+
+
+
+
+
+
+library(wordVectors)
+corpus <- Corpus(VectorSource(df$Str))
+
+corpus <- processCorpus(corpus)
+#corpus$content[1]
+
+
+write.table(corpus$content, "corp.txt", sep="\t")
+prep_word2vec(origin = "corp.txt", destination = "corp2.txt", lowercase = F, bundle_ngrams = 3, force = T)
+#x <- readLines("corp2.txt")
+model = train_word2vec("corp2.txt", "corp_vectors.bin", vectors = 200, threads = 4, window = 12, iter = 5, negative_samples = 0, force = T)
+#rm(corpus); gc()
+#model = read.vectors("corp_vectors.bin")
+#-------------------------------------------
+#dimnames(model)[[1]] <- gsub("dash", "-", dimnames(model)[[1]])
+vocab <- dimnames(model)[[1]]
+head(vocab)
+vocab[1:150]
+
+#vocab[grep("mascu", vocab)]
+#model[["king"]] - model[[c("man","men")]] + model[[c("woman","women")]]
+cosineSimilarity(model[[c("man", "men", "male", "exclud", "domin"), average = F]], model[[c("woman","women","femal", "feminin", "includ", "communal"), average = F]])
+cosineSimilarity(model[[c("caucasian", "white"), average = F]], model[[c("black", "ethnic"), average = F]])
+model %>% closest_to("ethnic")
+
+
+
+gender_score <- c()
+caucas_score <- c()
+i <- 256
+for(i in 1:nrow(df)){
+  print(i)
+  this_vocab <- unlist(str_split(corpus$content[i], " "))
+  feminin_aligned <- c()
+  masculin_aligned <- c()
+  caucas_aligned <- c()
+  for(j in 1:length(this_vocab)){
+    this_word <- this_vocab[j]
+    feminin_aligned[j] <- cosineSimilarity(model[[this_word]], model[[c("feminin", "femal", "communal", "includ")]])
+    masculin_aligned[j] <- cosineSimilarity(model[[this_word]], model[[c("men", "man", "male", "exclud", "domin")]])
+    caucas_aligned[j] <- cosineSimilarity(model[[this_word]], model[[c("white", "caucasian")]])
+
+  }
+  ind_nan <- which(is.nan(feminin_aligned))
+  if(length(ind_nan) != 0){
+    g_aligned <- feminin_aligned[-ind_nan] - masculin_aligned[-ind_nan]
+    caucas_aligned <- caucas_aligned[-ind_nan]
+  }else{
+    g_aligned <- feminin_aligned - masculin_aligned
+  }
+  g_score <- mean(g_aligned)
+  cauc_score <- mean(caucas_aligned)
+  print(g_score)
+  print(cauc_score)
+  gender_score[i] <- g_score
+  caucas_score[i] <- cauc_score
+}
+
+hist(caucas_score)
+hist(gender_score)
+file_names[256]
+corpus$content[256]
+q <- quantile(gender_score, probs = 0.95)
+ind_top <- which(gender_score > as.numeric(q))
+file_names[ind_top]
+q <- quantile(-gender_score, probs = 0.95)
+ind_bottom <- which(-gender_score > as.numeric(q))
+file_names[ind_bottom]
+
+mean(df$mean_entry_salaries_all_GEN[ind_top])
+mean(df$mean_entry_salaries_all_GEN[ind_bottom])
+
+df$y <- gender_score
+
+gg <- ggplot(df, aes(x = y, y = mean_entry_salaries_all_GEN))
+gg <- gg + geom_point()
+gg
+
+colnames(df)
+
+
+df$lmean_entry_salaries_all_GEN <- log(df$mean_entry_salaries_all_GEN)
+df$lmean_entry_salaries_all_DWP <- log(df$mean_entry_salaries_all_DWP)
+df$lmean_growth_potential_GEN <- log(df$mean_growth_potential_GEN)
+df$lmean_growth_potential_DWP <- log(df$mean_growth_potential_DWP)
+u <- df$lmean_growth_potential_GEN
+df$lmean_growth_potential_GEN[which(is.infinite(u))] <- NA
+u <- df$lmean_growth_potential_DWP
+df$lmean_growth_potential_DWP[which(is.infinite(u))] <- NA
+df$cv_entry_salaries_all_GEN
+
+mod <- lm(y ~ lmean_entry_salaries_all_GEN + lmean_entry_salaries_all_DWP, df)
+summary(mod)  
+  
+
+
+model[1:3000,] %>% closest_to("woman", n = 30)
+
+model[1:3000,] %>% cosineSimilarity(male_vec)
