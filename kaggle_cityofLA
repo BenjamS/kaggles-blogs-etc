@@ -3,11 +3,12 @@
 options(warn = -1); options(scipen = 999)
 #======================================================
 #dir <- '../input/cityofla//CityofLA//Job Bulletins/'
-dir <- "CityofLA/Job Bulletins/"
-#dir <- "D:/OneDrive - CGIAR/Documents/kaggle/CityofLA/Job Bulletins/"
+#dir <- "CityofLA/Job Bulletins/"
+dir <- "D:/OneDrive - CGIAR/Documents/kaggle/CityofLA/"
+bulletin_folder <- "Job Bulletins/"
 #======================================================
 # Required libraries, load yourselves!
-pkgs <- c("tidyverse", "tidytext", "tm")
+pkgs <- c("tidyverse", "tidytext", "tm", "tokenizers")
 for (pkg in pkgs) {
   if (! (pkg %in% rownames(installed.packages()))){install.packages(pkg)}
   library(pkg, character.only = TRUE)
@@ -156,6 +157,8 @@ get_salaries <- function(str_annSalary){
       growth_potential_all <- paste(as.character(growth_potential), collapse = ", ")
       mean_growth_potential <- mean(growth_potential)
       cv_growth_potential <- sd(growth_potential) / mean_growth_potential
+      min_growth_potential <- min(growth_potential, na.rm = T)
+      max_growth_potential <- max(growth_potential, na.rm = T)
     }else{
       entry_salaries_scale <- NA
       out_entry_salaries_scale <- NA
@@ -167,12 +170,16 @@ get_salaries <- function(str_annSalary){
       growth_potential_all <- 0
       mean_growth_potential <- 0
       cv_growth_potential <- NA
+      min_growth_potential <- 0
+      max_growth_potential <- 0
     }
     # Deal with flat-rated salaries
     if(n_flat_rated_salaries > 0){
       out_entry_salaries_flat <- as.character(paste(salaries_flat, collapse = ", "))
       entry_salaries_flat <- as.numeric(salaries_flat)
-      mean_entry_salaries_flat <- mean(entry_salaries_flat)
+      mean_entry_salaries_flat <- mean(entry_salaries_flat, na.rm = T)
+      # min_entry_salaries_flat <- min(entry_salaries_flat, na.rm = T)
+      # max_entry_salaries_flat <- max(entry_salaries_flat, na.rm = T)
       cv_entry_salaries_flat <- sd(entry_salaries_flat) / mean_entry_salaries_flat
     }else{
       entry_salaries_flat <- NA
@@ -185,8 +192,11 @@ get_salaries <- function(str_annSalary){
     ind_rm <- which(is.na(entry_salaries_all))
     if(length(ind_rm) != 0){entry_salaries_all <- entry_salaries_all[-ind_rm]}
     mean_entry_salaries_all <- mean(entry_salaries_all, na.rm = T)
+    min_entry_salaries_all <- min(entry_salaries_all, na.rm = T)
+    max_entry_salaries_all <- max(entry_salaries_all, na.rm = T)
     cv_entry_salaries_all <- sd(entry_salaries_all, na.rm = T) / mean_entry_salaries_all
     out_entry_salaries_all <- as.character(paste(entry_salaries_all, collapse = ", "))
+    min
     #----------------------------------------------
   }else{
     n_salary_scales <- NA
@@ -196,6 +206,8 @@ get_salaries <- function(str_annSalary){
     out_entry_salaries_flat <- NA
     out_entry_salaries_all <- NA
     mean_entry_salaries_all <- NA
+    min_entry_salaries_all <- NA
+    max_entry_salaries_all <- NA
     cv_entry_salaries_all <- NA
     mean_entry_salaries_scale <- NA
     cv_entry_salaries_scale <- NA
@@ -207,16 +219,21 @@ get_salaries <- function(str_annSalary){
     growth_potential_all <- NA
     mean_growth_potential <- NA
     cv_growth_potential <- NA
+    min_growth_potential <- NA
+    max_growth_potential <- NA
   }
   #----------------------------------------------
   df_salary_info <- data.frame(n_salary_scales, n_flat_rated_salaries,
                                ENTRY_SALARY = out_entry_salaries_all,
                                mean_entry_salaries_all,
+                               min_entry_salaries_all,
+                               max_entry_salaries_all,
                                cv_entry_salaries_all,
                                entry_salaries_scale = out_entry_salaries_scale, mean_entry_salaries_scale, cv_entry_salaries_scale,
                                entry_salaries_flat = out_entry_salaries_flat, mean_entry_salaries_flat, cv_entry_salaries_flat,
                                salary_caps = out_salary_caps, mean_salary_caps, cv_salary_caps,
-                               growth_potential_all, mean_growth_potential, cv_growth_potential)
+                               growth_potential_all, mean_growth_potential, cv_growth_potential,
+                               min_growth_potential, max_growth_potential)
   
   return(df_salary_info)
 }
@@ -225,7 +242,8 @@ get_salaries <- function(str_annSalary){
 # DATA CLEANING
 # 1) Compare job titles in file names with job titles found inside the file.
 # Look for mislabeled or duplicate files.
-file_names <- list.files(dir)
+file_path <- paste0(dir, "Job Bulletins/")
+file_names <- list.files(file_path)
 gsubPattern_in_fileName <- "[0-9\\._]|\\b[A-Z][a-z]+|[a-z]|\\s*\\([^\\)]+\\)|.txt|\\bREV\\b|REVISED|FINAL|\\bDRAFT\\b|TRACK CHANGES"
 gsubPattern_in_txt <- "\\'|\\s*\\([^\\)]+\\)"
 jobTitle_from_fileName <- c()
@@ -235,7 +253,7 @@ for(i in 1:length(file_names)){
   str <- gsub(gsubPattern_in_fileName, "", file_name)
   jobTitle_from_fileName[i] <- str_trim(str)
   #----------------
-  bulletin_lines <- get_bulletinLines(file_name, dir, quietly = T)
+  bulletin_lines <- get_bulletinLines(file_name, file_path, quietly = T)
   jobTitle_from_txt[i] <- get_jobTitle_fromBulletin(bulletin_lines, gsubPattern_in_txt)
   
 }
@@ -282,7 +300,7 @@ dup_files <- file_names[ind_find]
 openDate_vec <- c()
 for(i in 1:length(dup_files)){
   dupFile_name <- dup_files[i]
-  bulletin_lines <- get_bulletinLines(dupFile_name, dir, quietly = T)
+  bulletin_lines <- get_bulletinLines(dupFile_name, file_path, quietly = T)
   openDate_vec[i] <- get_openDate(bulletin_lines)
   
 }
@@ -316,7 +334,7 @@ for(i in 1:length(file_names)){
   #--------------
   jobClassNum_from_fileName[i] <- gsub(".*\\s(\\d{4})\\s.*", "\\1", file_name)
   #--------------
-  bulletin_lines <- get_bulletinLines(file_name, dir, quietly = T)
+  bulletin_lines <- get_bulletinLines(file_name, file_path, quietly = T)
   jobClassNum_from_txt[i] <- get_jobClassNum_fromBulletin(bulletin_lines)
 }
 ind_dup <- which(duplicated(jobClassNum_from_fileName))
@@ -411,18 +429,14 @@ length(file_names)
 
 
 
+#file_name <- file_names[44]
 
 
 
 
-
-
-# file_names[grep("SYSTEMS", file_names)]
-# file_name <- file_names[23]
-# file_name <- "SYSTEMS ANALYST 1596 102717.txt"
-parse_bulletin <- function(file_name, dir){
+parse_bulletin <- function(file_name, file_path){
   print(file_name)
-  bulletin_lines <- get_bulletinLines(file_name, dir, quietly = F)
+  bulletin_lines <- get_bulletinLines(file_name, file_path, quietly = F)
   section_headings <- get_sectionHeadings(bulletin_lines)
   #---------------------------------------------
   # Job class title
@@ -456,13 +470,13 @@ parse_bulletin <- function(file_name, dir){
   #---------------------------------------------
   # Process Notes
   str_procNotes <- get_sectionTxt(section_name = "PROCESS NOTES",
-                               bulletin_lines,
-                               section_headings)
+                                  bulletin_lines,
+                                  section_headings)
   #---------------------------------------------
   # Selection Process
   str_selectProc <- get_sectionTxt(section_name = "SELECTION PROCESS",
-                                  bulletin_lines,
-                                  section_headings)
+                                   bulletin_lines,
+                                   section_headings)
   #---------------------------------------------
   # Selective Certification
   str_selectCert <- get_sectionTxt(section_name = "SELECTIVE CERTIFICATION",
@@ -561,7 +575,14 @@ parse_bulletin <- function(file_name, dir){
   return(df_out)
 }
 #===============================================
-list_df <- map(file_names, parse_bulletin, dir)
+list_df <- map(file_names, parse_bulletin, file_path)
+
+list_df <- list()
+for(i in 1:length(file_names)){
+  file_name <- file_names[i]
+  list_df[[i]] <- parse_bulletin(file_name, file_path)
+}
+
 df <- do.call(rbind, list_df)
 
 
@@ -579,29 +600,46 @@ for(i in 1:ncol(df)){
 class(df$Requirements)
 df$Str <- paste(df$Duties, df$Requirements)
 df$Str <- paste(df$Str, df$Process_Notes)
+df$Str <- paste(df$Str, df$Selection_Process)
+df$Str <- paste(df$Str, df$Selection_Certification)
+#df$Str[145]
+df$num_words <- str_count(df$Str, "\\w+")
+nsent_vec <- c()
+for(i in 1:nrow(df)){
+  sents <- tokenize_sentences(df$Str[i])
+  nsent_vec[i] <- length(unlist(sents))
+}
+df$num_sent <- nsent_vec
+
+
+
+
 
 removeURL <- function(x) gsub("http:[[:alnum:]]*", "", x)
 processCorpus <- function (corpus)
 {
+  corpus <- tm_map(corpus, content_transformer(removeURL))
   corpus <- tm_map(corpus, content_transformer(tolower))
   corpus <- tm_map(corpus, removeNumbers)
-  corpus <- tm_map(corpus, content_transformer(removeURL))
   corpus <- tm_map(corpus, removePunctuation, preserve_intra_word_dashes = TRUE)
   corpus <- tm_map(corpus, removeWords, stopwords("english"))
   corpus <- tm_map(corpus, stemDocument, language="english")
-  #corpus <- tm_map(corpus, stripWhitespace)
-  # corpus <- tm_map(corpus, function (x) {
-  #   gsub("\\s*(?<!\\B|-)\\d+(?!\\B|-)\\s*", "", x, perl = TRUE) })
-  #corpus <- tm_map(corpus, stripWhitespace)
+  corpus <- tm_map(corpus, stripWhitespace)
+  corpus <- tm_map(corpus, function (x) {
+    gsub("\\s*(?<!\\B|-)\\d+(?!\\B|-)\\s*", "", x, perl = TRUE) })
+  corpus <- tm_map(corpus, stripWhitespace)
   return (corpus)
 }
-library(rJava)
+
+
+#--------------------------------------
+# Finding structure/clustering in the data, topics
+#library(rJava)
+#install.packages("RWeka")
 library(RWeka)
-
-corpus <- VCorpus(VectorSource(df$Str))
+bulletin_corpus <- VCorpus(VectorSource(df$Str))
 #summary(corpus)  #check what went in
-corpus <- processCorpus(corpus)
-
+bulletin_corpus <- processCorpus(bulletin_corpus)
 
 dtm <- DocumentTermMatrix(corpus) 
 dtm <- removeSparseTerms(dtm, 0.9)
@@ -713,107 +751,192 @@ gg <- gg + theme(axis.text.x = element_text(angle = 75, hjust = 1))
 gg
 
 
+ind <- which(collModes[, 1]^2 > 0.004)
+colnames(in_mat)[ind]
+#--------------------------------------
 
 
 
 
 
-
+# if (!require(wordVectors)) {
+#   if (!(require(devtools))) {
+#     install.packages("devtools")
+#   }
+#   devtools::install_github("bmschmidt/wordVectors")
+# }
 
 library(wordVectors)
-corpus <- Corpus(VectorSource(df$Str))
 
-corpus <- processCorpus(corpus)
-#corpus$content[1]
+bulletin_corpus <- Corpus(VectorSource(df$Str))
+#df$Str[2]
+#summary(bulletin_corpus)  #check what went in
+bulletin_corpus <- processCorpus(bulletin_corpus)
+bulletin_corpus[[1]]$content
 
 
-write.table(corpus$content, "corp.txt", sep="\t")
-prep_word2vec(origin = "corp.txt", destination = "corp2.txt", lowercase = F, bundle_ngrams = 3, force = T)
+file_path <- paste0(dir, "COCA/")
+COCA_corpus <- Corpus(DirSource(file_path))
+COCA_corpus <- processCorpus(COCA_corpus)
+COCA_corpus[[1]]$content
+
+COCA_corpus_file_path <- paste0(dir, "COCA_corp.txt")
+write.table(COCA_corpus$content, COCA_corpus_file_path, sep="\t")
+#prep_word2vec(origin = "corp.txt", destination = "corp2.txt", lowercase = F, bundle_ngrams = 3, force = T)
 #x <- readLines("corp2.txt")
-model = train_word2vec("corp2.txt", "corp_vectors.bin", vectors = 200, threads = 4, window = 12, iter = 5, negative_samples = 0, force = T)
+model = train_word2vec(COCA_corpus_file_path, "corp_vectors.bin", vectors = 200, threads = 4, window = 12, iter = 5, negative_samples = 0, force = T)
 #rm(corpus); gc()
 #model = read.vectors("corp_vectors.bin")
 #-------------------------------------------
 #dimnames(model)[[1]] <- gsub("dash", "-", dimnames(model)[[1]])
-vocab <- dimnames(model)[[1]]
-head(vocab)
-vocab[1:150]
+COCA_vocab <- dimnames(model)[[1]]
+COCA_vocab[80:110]
 
-#vocab[grep("mascu", vocab)]
-#model[["king"]] - model[[c("man","men")]] + model[[c("woman","women")]]
-cosineSimilarity(model[[c("man", "men", "male", "exclud", "domin"), average = F]], model[[c("woman","women","femal", "feminin", "includ", "communal"), average = F]])
-cosineSimilarity(model[[c("caucasian", "white"), average = F]], model[[c("black", "ethnic"), average = F]])
-model %>% closest_to("ethnic")
+COCA_vocab[grep("excel", COCA_vocab)]
+model[["king"]] - model[[c("man","men")]] + model[[c("woman","women")]]
+model[["male"]] - model[[c("domin","exclud")]] + model[[c("communal","inclus", "share", "collabor")]]
+feminine_gendered <- c("feminin", "femal", "woman", "women", "communal", "includ")
+masculine_gendered <- c("man", "men", "male", "exclud", "domin")
+cosineSimilarity(model[[c(feminine_gendered, masculine_gendered), average = F]], model[[c(feminine_gendered, masculine_gendered), average = F]])
+#cosineSimilarity(model[[c("caucasian", "white", "black", "ethnic", "latin", "asian"), average = F]], model[[c("caucasian", "white", "black", "ethnic", "latin", "asian"), average = F]])
+
+#as.numeric(model[["feminin"]])
 
 
 
-gender_score <- c()
-caucas_score <- c()
-i <- 256
+fem_vec <- as.numeric(model[[feminine_gendered]])
+mascul_vec <- as.numeric(model[[masculine_gendered]])
+
+fem_vec %*% mascul_vec
+
+
+gender_score_vec <- c()
+caucas_score_vec <- c()
 for(i in 1:nrow(df)){
   print(i)
-  this_vocab <- unlist(str_split(corpus$content[i], " "))
-  feminin_aligned <- c()
-  masculin_aligned <- c()
-  caucas_aligned <- c()
-  for(j in 1:length(this_vocab)){
-    this_word <- this_vocab[j]
-    feminin_aligned[j] <- cosineSimilarity(model[[this_word]], model[[c("feminin", "femal", "communal", "includ")]])
-    masculin_aligned[j] <- cosineSimilarity(model[[this_word]], model[[c("men", "man", "male", "exclud", "domin")]])
-    caucas_aligned[j] <- cosineSimilarity(model[[this_word]], model[[c("white", "caucasian")]])
-
-  }
-  ind_nan <- which(is.nan(feminin_aligned))
-  if(length(ind_nan) != 0){
-    g_aligned <- feminin_aligned[-ind_nan] - masculin_aligned[-ind_nan]
-    caucas_aligned <- caucas_aligned[-ind_nan]
-  }else{
-    g_aligned <- feminin_aligned - masculin_aligned
-  }
-  g_score <- mean(g_aligned)
-  cauc_score <- mean(caucas_aligned)
-  print(g_score)
-  print(cauc_score)
-  gender_score[i] <- g_score
-  caucas_score[i] <- cauc_score
+  this_vocab <- unlist(str_split(bulletin_corpus$content[i], " "))  # or bulletin_corpus[[i]]$content
+  ind_keep <- which(this_vocab %in% COCA_vocab)
+  this_vocab <- this_vocab[ind_keep]
+  
+  feminin_aligned <- cosineSimilarity(model[[this_vocab]], model[[feminine_gendered]])
+  masculin_aligned <- cosineSimilarity(model[[this_vocab]], model[[masculine_gendered]])
+  gender_score <- feminin_aligned - masculin_aligned
+  caucas_score <- cosineSimilarity(model[[this_vocab]], model[[c("white", "caucasian")]])
+  print(gender_score)
+  gender_score_vec[i] <- gender_score
+  caucas_score_vec[i] <- caucas_score
+  
+  # feminin_aligned <- c()
+  # masculin_aligned <- c()
+  # caucas_aligned <- c()
+  # for(j in 1:length(this_vocab)){
+  #   this_word <- this_vocab[j]
+  #   feminin_aligned[j] <- cosineSimilarity(model[[this_word]], model[[feminine_gendered]])
+  #   masculin_aligned[j] <- cosineSimilarity(model[[this_word]], model[[masculine_gendered]])
+  #   caucas_aligned[j] <- cosineSimilarity(model[[this_word]], model[[c("white", "caucasian")]])
+  #   
+  # }
+  # ind_nan <- which(is.nan(feminin_aligned))
+  # if(length(ind_nan) != 0){
+  #   g_aligned <- feminin_aligned[-ind_nan] - masculin_aligned[-ind_nan]
+  #   caucas_aligned <- caucas_aligned[-ind_nan]
+  # }else{
+  #   g_aligned <- feminin_aligned - masculin_aligned
+  # }
+  # g_score <- mean(g_aligned)
+  # cauc_score <- mean(caucas_aligned)
+  # print(g_score)
+  # print(cauc_score)
+  # gender_score[i] <- g_score
+  # caucas_score[i] <- cauc_score
 }
 
-hist(caucas_score)
-hist(gender_score)
-file_names[256]
-corpus$content[256]
-q <- quantile(gender_score, probs = 0.95)
-ind_top <- which(gender_score > as.numeric(q))
+hist(caucas_score_vec)
+hist(gender_score_vec)
+q <- quantile(gender_score_vec, probs = 0.95)
+ind_top <- which(gender_score_vec > as.numeric(q))
 file_names[ind_top]
-q <- quantile(-gender_score, probs = 0.95)
-ind_bottom <- which(-gender_score > as.numeric(q))
+q <- quantile(-gender_score_vec, probs = 0.95)
+ind_bottom <- which(-gender_score_vec > as.numeric(q))
 file_names[ind_bottom]
 
-mean(df$mean_entry_salaries_all_GEN[ind_top])
-mean(df$mean_entry_salaries_all_GEN[ind_bottom])
+mean(df$min_entry_salaries_all_GEN[ind_top], na.rm = T)
+mean(df$min_entry_salaries_all_GEN[ind_bottom], na.rm = T)
 
-df$y <- gender_score
 
-gg <- ggplot(df, aes(x = y, y = mean_entry_salaries_all_GEN))
+
+# df$lmean_entry_salaries_all_GEN <- log(df$mean_entry_salaries_all_GEN)
+# df$lmean_entry_salaries_all_DWP <- log(df$mean_entry_salaries_all_DWP)
+# df$lmin_entry_salaries_all_GEN <- log(df$min_entry_salaries_all_GEN)
+# df$lmin_entry_salaries_all_DWP <- log(df$min_entry_salaries_all_DWP)
+# df$lmax_entry_salaries_all_GEN <- log(df$max_entry_salaries_all_GEN)
+# df$lmax_entry_salaries_all_DWP <- log(df$max_entry_salaries_all_DWP)
+# 
+# df$lmin_growth_potential_GEN <- log(df$mean_growth_potential_GEN)
+# df$lmin_growth_potential_DWP <- log(df$mean_growth_potential_DWP)
+
+df$lnum_words <- log(df$num_words)
+df$lnum_sent <- log(df$num_sent)
+
+# u <- df$lmean_growth_potential_GEN
+# df$lmean_growth_potential_GEN[which(is.infinite(u))] <- NA
+# u <- df$lmean_growth_potential_DWP
+# df$lmean_growth_potential_DWP[which(is.infinite(u))] <- NA
+# df$cv_entry_salaries_all_GEN
+
+
+df$lmax_entry_salaries_all_DWPandGEN <- NA
+df$lmin_entry_salaries_all_DWPandGEN <- NA
+#df$lmean_growth_potential_DWPandGEN <- NA
+df$lmax_growth_potential_DWPandGEN <- NA
+df$lmin_growth_potential_DWPandGEN <- NA
+for(i in 1:nrow(df)){
+  df$lmin_growth_potential_DWPandGEN[i] <- log(min(df$min_growth_potential_DWP[i], df$min_growth_potential_GEN[i], na.rm = T))
+  df$lmax_growth_potential_DWPandGEN[i] <- log(max(df$max_growth_potential_DWP[i], df$max_growth_potential_GEN[i], na.rm = T))
+  
+  df$lmax_entry_salaries_all_DWPandGEN[i] <- log(max(c(df$max_entry_salaries_all_DWP[i], df$max_entry_salaries_all_GEN[i]), na.rm = T))
+  df$lmin_entry_salaries_all_DWPandGEN[i] <- log(min(c(df$min_entry_salaries_all_DWP[i], df$min_entry_salaries_all_GEN[i]), na.rm = T))
+  df$lmean_growth_potential_DWPandGEN[i] <- log(mean(c(df$mean_growth_potential_DWP[i], df$mean_growth_potential_GEN[i]), na.rm = T))
+  }
+
+u <- df$lmin_entry_salaries_all_DWPandGEN
+df$lmin_entry_salaries_all_DWPandGEN[which(is.infinite(u))] <- NA
+#u <- df$lmax_entry_salaries_all_DWPandGEN
+#df$lmax_entry_salaries_all_DWPandGEN[which(is.infinite(u))] <- NA
+u <- df$lmin_growth_potential_DWPandGEN
+df$lmin_growth_potential_DWPandGEN[which(is.infinite(u))] <- NA
+u <- df$lmax_growth_potential_DWPandGEN
+df$lmax_growth_potential_DWPandGEN[which(is.infinite(u))] <- NA
+
+df$gender_score <- gender_score_vec
+df$lword_per_sent <- log(df$num_words / df$num_sent)
+
+mod <- lm(gender_score ~ lmin_entry_salaries_all_DWPandGEN +
+            lmax_growth_potential_DWPandGEN +
+            lword_per_sent, df)
+            #lnum_words + lnum_sent, df)
+summary(mod)  
+
+
+
+df_plot <- df[, c("JOB_CLASS_TITLE", "gender_score", "lmin_entry_salaries_all_DWPandGEN",
+                  "lmax_growth_potential_DWPandGEN", "lword_per_sent")]
+df_plot <- df_plot %>% gather(Type, Value, lmin_entry_salaries_all_DWPandGEN:lword_per_sent)
+gg <- ggplot(df_plot, aes(x = gender_score, y = Value))
 gg <- gg + geom_point()
+gg <- gg + facet_wrap(~Type, ncol = 1, scales = "free")
 gg
 
-colnames(df)
+ind_outlier <- which(df$lmin_entry_salaries_all_GEN < 10)
+df[ind_outlier, c("JOB_CLASS_TITLE", "ENTRY_SALARY_GEN", "ENTRY_SALARY_DWP")]
+df <- df[-ind_outlier,]
 
 
-df$lmean_entry_salaries_all_GEN <- log(df$mean_entry_salaries_all_GEN)
-df$lmean_entry_salaries_all_DWP <- log(df$mean_entry_salaries_all_DWP)
-df$lmean_growth_potential_GEN <- log(df$mean_growth_potential_GEN)
-df$lmean_growth_potential_DWP <- log(df$mean_growth_potential_DWP)
-u <- df$lmean_growth_potential_GEN
-df$lmean_growth_potential_GEN[which(is.infinite(u))] <- NA
-u <- df$lmean_growth_potential_DWP
-df$lmean_growth_potential_DWP[which(is.infinite(u))] <- NA
-df$cv_entry_salaries_all_GEN
 
-mod <- lm(y ~ lmean_entry_salaries_all_GEN + lmean_entry_salaries_all_DWP, df)
-summary(mod)  
-  
+
+ind_look <- which(df$lmax_growth_potential_DWPandGEN < 9)
+df$JOB_CLASS_TITLE[ind_look]
+
 
 
 model[1:3000,] %>% closest_to("woman", n = 30)
