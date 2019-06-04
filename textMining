@@ -23,6 +23,356 @@ rm(pkgs, pkg)
 gc()
 #======================================================
 # Define functions
+# Bulletin lines getter
+get_bulletinLines <- function(file_name, dir, quietly = F){
+  if(!quietly){print(file_name)}
+  bulletin_lines <- readLines(paste0(dir, file_name))
+  bulletin_lines <- as.character(unlist(bulletin_lines))
+  bulletin_lines <- str_trim(bulletin_lines)
+  ind_rm <- which(bulletin_lines == "")
+  if(length(ind_rm) != 0){
+    bulletin_lines <- bulletin_lines[-ind_rm]
+    
+  }
+  return(bulletin_lines)
+}
+
+
+# Bulletin section headings getter
+get_sectionHeadings <- function(bulletin_lines,
+                                grep_chars = "^[A-Z :/,\t\\(\\)]+$"){
+  ind_headings <- grep(grep_chars, bulletin_lines)
+  section_headings <- bulletin_lines[ind_headings]
+  section_headings <- str_trim(section_headings)
+  return(section_headings)
+}
+
+# Section text getter
+get_sectionTxt <- function(section_name, bulletin_lines, section_headings){
+  ind_section_start <- grep(section_name, bulletin_lines) + 1
+  if(length(ind_section_start) != 0){
+    str_section_end <- section_headings[grep(section_name, section_headings) + 1]
+    ind_section_end <- grep(str_section_end, bulletin_lines) - 1
+    ind_rm <- which(ind_section_end < ind_section_start)
+    if(length(ind_rm) != 0){
+      ind_section_end <- ind_section_end[-ind_rm]
+    }
+    ind_section_end <- ind_section_end[1]
+    str_section <- bulletin_lines[ind_section_start:ind_section_end]
+    str_section <- paste(str_section, collapse = " ")
+  }else{
+    str_section <- ""
+  }
+}
+
+
+unique_sections <- function(file_name, dir, grep_chars, quietly = F){
+  bulletin_lines <- get_bulletinLines(file_name, dir, quietly)
+  section_headings <- get_sectionHeadings(bulletin_lines, grep_chars)
+  
+  job_class_title <- gsub("[0-9\\(\\)\\.bulletin_lines]|REV|REVISED|[a-z]", "", file_name)
+  job_class_title <- str_trim(job_class_title)
+  
+  section_headings
+  
+  return(section_headings)
+}
+
+
+
+file_names <- list.files(dir)
+"\\s*\\([^\\)]+\\)"
+"\\(\\)\\"
+thisPattern_in_fileName <- "[0-9\\._]|\\b[A-Z][a-z]+|[a-z]|\\s*\\([^\\)]+\\)|.txt|\\bREV\\b|REVISED|FINAL|\\bDRAFT\\b|TRACK CHANGES"
+jobTitle_from_fileName <- c()
+jobTitle_from_txt <- c()
+#i <- which(file_names == "ANIMAL CARE TECHNICIAN SUPERVISOR 4313 122118.txt")
+for(i in 1:length(file_names)){
+  file_name <- file_names[i]
+  str <- gsub(thisPattern_in_fileName, "", file_name)
+  jobTitle_from_fileName[i] <- str_trim(str)
+  bulletin_lines <- get_bulletinLines(file_name, dir)
+  jobTitle_line <- ifelse(length(grep("CAMPUS INTERVIEWS ONLY", bulletin_lines[1])) == 0,
+                      bulletin_lines[1], bulletin_lines[2])
+  str <- gsub("\\'|\\s*\\([^\\)]+\\)", "", jobTitle_line)
+  jobTitle_from_txt[i] <- str_trim(str)
+}
+# ind_dup <- which(duplicated(jobTitle_from_fileName))
+# print(jobTitle_from_fileName[ind_dup])
+ind_dup <- which(duplicated(jobTitle_from_txt))
+print(jobTitle_from_txt[ind_dup])
+
+# CHIEF CLERK POLICE 1219 061215.txt # Old duplicate of CHIEF CLERK POLICE 1249 083118.txt with erroneous class code in file name (but correct inside file)
+# SENIOR UTILITY SERVICES SPECIALIST 3753 121815 (1).txt #Old duplicate of "SENIOR UTILITY SERVICES SPECIALIST 3573 113018.txt" with class code in file name
+df_look <- data.frame(jobTitle_from_fileName, jobTitle_from_txt)
+
+df_look[which(jobTitle_from_txt == "WATER UTILITY SUPERINTENDENT"), ]
+df_look[which(jobTitle_from_txt == "WATER TREATMENT OPERATOR"), ]
+df_look[which(jobTitle_from_txt == "WASTEWATER TREATMENT OPERATOR"), ]
+
+duplicate_cases <- c("CHIEF CLERK POLICE 1219 061215.txt",# Old duplicate of CHIEF CLERK POLICE 1249 083118.txt with erroneous class code in file name (but correct inside file)
+                     "SENIOR UTILITY SERVICES SPECIALIST 3753 121815 (1).txt",#Old duplicate of "SENIOR UTILITY SERVICES SPECIALIST 3573 113018.txt" with class code in file name
+                     "SENIOR EXAMINER OF QUESTIONED DOCUMENTS 3231 072216 REVISED 072716.txt", # Misnamed duplicate of "WATER UTILITY SUPERINTENDENT 3980 121418.txt"
+                     "WASTEWATER COLLECTION SUPERVISOR 4113 121616.txt", # Old misnamed duplicate (same job code) of "WASTEWATER TREATMENT OPERATOR 120718.txt"
+                     "ANIMAL CARE TECHNICIAN SUPERVISOR 4313 122118.txt" # Mislabeled duplicate of "WATER TREATMENT OPERATOR 5885 122118.txt"
+)
+
+file_names <- list.files(dir)
+ind_rm <- which(file_names %in% duplicate_cases)
+file_names <- file_names[-ind_rm]
+"\\s*\\([^\\)]+\\)"
+"\\(\\)\\"
+thisPattern_in_fileName <- "[0-9\\._]|\\b[A-Z][a-z]+|[a-z]|\\s*\\([^\\)]+\\)|.txt|\\bREV\\b|REVISED|FINAL|\\bDRAFT\\b|TRACK CHANGES"
+jobTitle_from_fileName <- c()
+jobTitle_from_txt <- c()
+#i <- which(file_names == "ANIMAL CARE TECHNICIAN SUPERVISOR 4313 122118.txt")
+for(i in 1:length(file_names)){
+  file_name <- file_names[i]
+  str <- gsub(thisPattern_in_fileName, "", file_name)
+  jobTitle_from_fileName[i] <- str_trim(str)
+  bulletin_lines <- get_bulletinLines(file_name, dir)
+  jobTitle_line <- ifelse(length(grep("CAMPUS INTERVIEWS ONLY", bulletin_lines[1])) == 0,
+                          bulletin_lines[1], bulletin_lines[2])
+  "\\'|\\s*\\([^\\)]+\\)"
+  str <- gsub("\\'|\\s*\\([^\\)]+\\)|Class Code[: ]|[0-9]{4}|REVISED", "", jobTitle_line)
+  str <- toupper(str)
+  jobTitle_from_txt[i] <- str_trim(str)
+}
+
+
+df_look <- data.frame(jobTitle_from_fileName, jobTitle_from_txt)
+ind_mismatch <- !(jobTitle_from_fileName %in% jobTitle_from_txt)
+#df_look$Mismatch <- grep(jobTitle_from_fileName, jobTitle_from_txt)
+#df_look <- subset(df_look, Mismatch == T)
+View(df_look[ind_mismatch, ])
+
+
+#Notes: CAMPUS INTERVIEWS ONLY
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+"Class Code:|Class Code[0-9]{4}"
+"\\b\\d{4}\\b"
+this_pattern <- "Class\\s+Code(:|\\s)"
+out <- c()
+for(i in 1:length(file_names)){
+  file_name <- file_names[i]
+  bulletin_lines <- get_bulletinLines(file_name, dir)
+  xx <- grep(this_pattern, bulletin_lines, ignore.case = T)
+  if(length(xx) != 0){
+    out[i] <- xx[1]
+    print(bulletin_lines[xx[1]])
+  }else{
+      out[i] <- NA
+      }
+}
+hist(out)
+unique(out)
+ind <- which(is.na(out))
+ind <- which(out == 3)
+file_names[ind]
+for(i in 1:length(file_names[ind])){
+  print(i)
+  file_name <- file_names[ind[i]]
+  bulletin_lines <- get_bulletinLines(file_name, dir, quietly = T)
+  xx <- grep(this_pattern, bulletin_lines, ignore.case = T)
+  "Class\\s+Code(:|\\s)"
+  if(length(xx) != 0){
+    #out[i] <- xx
+    print(bulletin_lines[xx])
+    
+  }else{
+    #out[i] <- NA
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+this_pattern <- "Class\\s+Code(:|\\s)"
+job_class_num_vec <- c()
+for(i in 1:length(file_names)){
+  file_name <- file_names[i]
+  bulletin_lines <- get_bulletinLines(file_name, dir)
+  ind <- grep(this_pattern, bulletin_lines[1:3], ignore.case = T)
+  if(length(ind) != 0){
+    ind <- ind[1]
+    print(bulletin_lines[ind])
+    job_class_num <- gsub(".*(\\d{4}).*", "\\1", bulletin_lines[ind])
+    job_class_num_vec[i] <- as.numeric(str_trim(job_class_num))
+  }else{
+    job_class_num_vec[i] <- NA
+  }
+}
+hist(job_class_num_vec)
+ind_na <- which(is.na(job_class_num_vec))
+file_names[ind_na]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#gsub_jobClassPattern <- "Class\\s+Code(:|\\s)"
+jobClassNum_from_fileName <- c()
+jobClassNum_from_txt <- c()
+for(i in 1:length(file_names)){
+  file_name <- file_names[i]
+  #--------------
+  jobClassNum_from_fileName[i] <- gsub(".*\\s(\\d{4})\\s.*", "\\1", file_name)
+  #--------------
+  bulletin_lines <- get_bulletinLines(file_name, dir)
+  ind <- grep(this_pattern, bulletin_lines[1:3], ignore.case = T)
+  if(length(ind) != 0){
+    ind <- ind[1]
+    print(bulletin_lines[ind])
+    job_class_num <- gsub(".*(\\d{4}).*", "\\1", bulletin_lines[ind])
+    jobClassNum_from_txt[i] <- str_trim(job_class_num)
+  }else{
+    jobClassNum_from_txt[i] <- NA
+    jobClassNum_from_fileName[i] <- NA
+  }
+}
+ind_dup <- which(duplicated(jobClassNum_from_fileName))
+file_names[ind_dup]
+ind_dup <- which(duplicated(jobClassNum_from_txt))
+file_names[ind_dup]
+
+
+
+ind_check <- which(!(jobClassNum_from_fileName %in% jobClassNum_from_txt))
+file_names[ind_check]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# filename_code <- str_squish(str_match(string = filename,
+#                                       pattern = "([:space:])([:digit:]){4}([:space:])")[1,1]) 
+# # Class Code from file text: 4-digit code
+# 
+# text_code <- (str_squish(str_match(string = text, pattern = "(Class Code)(:)*([:space:])+([:digit:]){4}")[1,1]) %>% 
+#                 str_match(pattern = "([:digit:]){4}"))[1,1]
+
+
+
+job_class_txtLines <- bulletin_lines[2:3]
+get_jobClassNum <- function(file_name, job_class_txtLines){
+  this_str <- paste(job_class_txtLines, collapse = " ")
+  jobClassNum_from_fileName <- gsub(this_str, "[:digit:]{4}", "")
+  
+  "([:digit:]){4}"
+  jobClassNum_from_fileName <- str_match(this_str, "(Class Code)(:)*([:space:])+([:digit:]){4}")
+  jobClassNum_from_bulletin
+}
+
+
+job_class_title <- bulletin_lines[1]
+
+
+job_class_title <- gsub("[0-9\\(\\)\\.bulletin_lines]|REV|REVISED|[a-z]", "", file_name)
+job_class_title <- str_trim(job_class_title)
+
+
+
+
+
+list_headings <- map(file_names, unique_sections, dir, grep_chars = "^[A-Z :/,\t\\(\\)]+$")
+df <- do.call(rbind, list_df)
+
+
+list_df[[1]]
+# special_case <- "Vocational Worker  DEPARTMENT OF PUBLIC WORKS.txt"
+# duplicate_cases <- c("CHIEF CLERK POLICE 1219 061215.txt",# Old duplicate of CHIEF CLERK POLICE 1249 083118.txt with erroneous class code in file name (but correct inside file)
+#                      "SENIOR UTILITY SERVICES SPECIALIST 3753 121815 (1).txt",#Old duplicate of "SENIOR UTILITY SERVICES SPECIALIST 3573 113018.txt" with class code in file name
+#                      "SENIOR EXAMINER OF QUESTIONED DOCUMENTS 3231 072216 REVISED 072716.txt", # Misnamed duplicate of "WATER UTILITY SUPERINTENDENT 3980 121418.txt"
+#                      "WASTEWATER COLLECTION SUPERVISOR 4113 121616.txt", # Old misnamed duplicate (same job code) of "WASTEWATER TREATMENT OPERATOR 120718.txt"
+#                      "ANIMAL CARE TECHNICIAN SUPERVISOR 4313 122118.txt" # Mislabeled duplicate of "WATER TREATMENT OPERATOR 5885 122118.txt"
+# ) 
+file_names <- list.files(dir)
+#file_names <- file_names[-which(file_names %in% duplicate_cases)]
+#ind_rm <- which(file_names == special_case)
+#file_names <- file_names[-ind_rm]
+
+
+
 # Salary info getting function
 #str_annSalary <- str_annSalary_GEN
 #str_annSalary <- str_annSalary_DWP
@@ -148,8 +498,8 @@ get_salaries <- function(str_annSalary){
 
 
 #------------------------------------------------------
-#dir <- "CityofLA/Job Bulletins/"
-dir <- "D:/OneDrive - CGIAR/Documents/kaggle/CityofLA/Job Bulletins/"
+dir <- "CityofLA/Job Bulletins/"
+#dir <- "D:/OneDrive - CGIAR/Documents/kaggle/CityofLA/Job Bulletins/"
 #------------------------------------------------------
 #"CityofLA/Job Bulletins/Vocational Worker  DEPARTMENT OF PUBLIC WORKS.txt"
 file_names <- list.files(dir)
@@ -188,34 +538,35 @@ file_name <- file_names[1]
 #-----------------------------------------------
 parse_bulletin <- function(file_name, dir){
   print(file_name)
-  txt <- readLines(paste0(dir, file_name))
-  txt <- as.character(unlist(txt))
-  txt <- str_trim(txt)
-  ind_rm <- which(txt == "")
-  txt <- txt[-ind_rm]
-  ind_headings <- grep("^[A-Z :/,\t\\(\\)]+$", txt)
-  section_headings <- txt[ind_headings]
+  bulletin_lines <- readLines(paste0(dir, file_name))
+  bulletin_lines <- as.character(unlist(bulletin_lines))
+  bulletin_lines <- str_trim(bulletin_lines)
+  ind_rm <- which(bulletin_lines == "")
+  bulletin_lines <- bulletin_lines[-ind_rm]
+  ind_headings <- grep("^[A-Z :/,\t\\(\\)]+$", bulletin_lines)
+  section_headings <- bulletin_lines[ind_headings]
   section_headings <- str_trim(section_headings)
   #---------------------------------------------
   # Job class title
-  # job_class_title <- txt[1]
+  # job_class_title <- bulletin_lines[1]
   job_class_title <- gsub("[0-9\\(\\)\\.txt]|REV|REVISED|[a-z]", "", file_name)
   job_class_title <- str_trim(job_class_title)
   #---------------------------------------------
   # Job class number (taken from inside file)
-  job_class_no <- txt[grep("Class code", txt, ignore.case = T)[1]]
+  job_class_no <- bulletin_lines[grep("Class code", bulletin_lines, ignore.case = T)[1]]
   job_class_no <- gsub("[^0-9]", "", job_class_no)
-  if(nchar(job_class_no) > 4){job_class_no <- substr(job_class_no, 1, 4)} #"MARINE ENVIRONMENTAL SUPERVISOR" "SENIOR COMPUTER OPERATOR 1428 102017.txt" "SUPERVISING CRIMINALIST 2235 030416.txt" 
+  if(nchar(job_class_no) > 4){job_class_no <- substr(job_class_no, 1, 4)} #"MARINE ENVIRONMENTAL SUPERVISOR" "SENIOR COMPUTER OPERATOR 1428 102017.bulletin_lines" "SUPERVISING CRIMINALIST 2235 030416.txt" 
+  #---------------------------------------------
+  # Opening date
+  ind_openDate <- grep("Open Date", bulletin_lines, ignore.case = T)
+  xx <- bulletin_lines[ind_openDate[1]]
+  open_date <- gsub("\\b[^0-9-]", "", xx)
+  if(nchar(open_date) > 8){open_date <- substr(open_date, 5, 12)} #"MARINE ENVIRONMENTAL SUPERVISOR" "SENIOR COMPUTER OPERATOR 1428 102017.txt" "SUPERVISING CRIMINALIST 2235 030416.txt" 
   #---------------------------------------------
   # Requirements
-  ind_reqMinquals_start <- grep("REQUIREMENT", txt) + 1
-  str_reqMinquals_end <- section_headings[grep("REQUIREMENT", section_headings) + 1]
-  ind_reqMinquals_end <- grep(str_reqMinquals_end, txt) - 1
-  ind_rm <- which(ind_reqMinquals_end < ind_reqMinquals_start)
-  if(length(ind_rm) != 0){ind_reqMinquals_end <- ind_reqMinquals_end[-ind_rm]}
-  ind_reqMinquals_end <- ind_reqMinquals_end[1]
-  str_reqMinquals <- txt[ind_reqMinquals_start:ind_reqMinquals_end]
-  str_reqMinquals <- paste(str_reqMinquals, collapse = " ")
+  str_reqMinquals <- get_sectionTxt(section_name = "REQUIREMENT",
+                                    bulletin_lines,
+                                    section_headings)
   #--
   # REQUIREMENT SET ID
   #--
@@ -272,13 +623,13 @@ parse_bulletin <- function(file_name, dir){
   # Salary
   # Get salary text
   salary_section_identifier <- "ANNUAL SALARY|ANNUALSALARY"
-  ind_annSalary_start <- grep(salary_section_identifier, txt) + 1
+  ind_annSalary_start <- grep(salary_section_identifier, bulletin_lines) + 1
   str_annSalary_end <- section_headings[grep(salary_section_identifier, section_headings) + 1]
-  ind_annSalary_end <- grep(str_annSalary_end, txt) - 1
+  ind_annSalary_end <- grep(str_annSalary_end, bulletin_lines) - 1
   ind_rm <- which(ind_annSalary_end < ind_annSalary_start)
   if(length(ind_rm) != 0){ind_annSalary_end <- ind_annSalary_end[-ind_rm]}
   ind_annSalary_end <- ind_annSalary_end[1]
-  str_annSalary <- txt[ind_annSalary_start:ind_annSalary_end]
+  str_annSalary <- bulletin_lines[ind_annSalary_start:ind_annSalary_end]
   str_annSalary <- paste(str_annSalary, collapse = " ")
   # Split into GEN and DWP salary text
   str_annSalary_vec <- unlist(str_split(str_annSalary, "Power"))
@@ -295,26 +646,9 @@ parse_bulletin <- function(file_name, dir){
   colnames(df_annSalary_DWP) <- paste0(colnames(df_annSalary_DWP), "_DWP")
   #---------------------------------------------
   # Duties
-  ind_Duties_start <- grep("DUTIES", txt) + 1
-  if(length(ind_Duties_start) != 0){
-    str_Duties_end <- section_headings[grep("DUTIES", section_headings) + 1]
-    ind_Duties_end <- grep(str_Duties_end, txt) - 1
-    ind_rm <- which(ind_Duties_end < ind_Duties_start)
-    if(length(ind_rm) != 0){
-      ind_Duties_end <- ind_Duties_end[-ind_rm]
-    }
-    ind_Duties_end <- ind_Duties_end[1]
-    str_Duties <- txt[ind_Duties_start:ind_Duties_end]
-    str_Duties <- paste(str_Duties, collapse = " ")
-  }else{
-    str_Duties <- ""
-  }
-  #---------------------------------------------
-  # Opening date
-  ind_openDate <- grep("Open Date", txt, ignore.case = T)
-  xx <- txt[ind_openDate[1]]
-  open_date <- gsub("\\b[^0-9-]", "", xx)
-  if(nchar(open_date) > 8){open_date <- substr(open_date, 5, 12)} #"MARINE ENVIRONMENTAL SUPERVISOR" "SENIOR COMPUTER OPERATOR 1428 102017.txt" "SUPERVISING CRIMINALIST 2235 030416.txt" 
+  str_Duties <- get_sectionTxt(section_name = "DUTIES",
+                               bulletin_lines,
+                               section_headings)
   #=============================================
   df_out <- data.frame(FILE_NAME = file_name,
                        JOB_CLASS_TITLE = job_class_title,
