@@ -3,8 +3,8 @@
 options(warn = -1); options(scipen = 999)
 #======================================================
 #dir <- '../input/cityofla//CityofLA//Job Bulletins/'
-#dir <- "CityofLA/Job Bulletins/"
-dir <- "D:/OneDrive - CGIAR/Documents/kaggle/CityofLA/"
+dir <- "CityofLA/"
+#dir <- "D:/OneDrive - CGIAR/Documents/kaggle/CityofLA/"
 bulletin_folder <- "Job Bulletins/"
 #======================================================
 # Required libraries, load yourselves!
@@ -14,6 +14,13 @@ for (pkg in pkgs) {
   library(pkg, character.only = TRUE)
 }
 rm(pkgs, pkg)
+if (!require(wordVectors)) {
+  if (!(require(devtools))) {
+    install.packages("devtools")
+  }
+  devtools::install_github("bmschmidt/wordVectors")
+}
+library(wordVectors)
 gc()
 #======================================================
 # Define functions
@@ -577,11 +584,11 @@ parse_bulletin <- function(file_name, file_path){
 #===============================================
 list_df <- map(file_names, parse_bulletin, file_path)
 
-list_df <- list()
-for(i in 1:length(file_names)){
-  file_name <- file_names[i]
-  list_df[[i]] <- parse_bulletin(file_name, file_path)
-}
+# list_df <- list()
+# for(i in 1:length(file_names)){
+#   file_name <- file_names[i]
+#   list_df[[i]] <- parse_bulletin(file_name, file_path)
+# }
 
 df <- do.call(rbind, list_df)
 
@@ -759,14 +766,6 @@ colnames(in_mat)[ind]
 
 
 
-# if (!require(wordVectors)) {
-#   if (!(require(devtools))) {
-#     install.packages("devtools")
-#   }
-#   devtools::install_github("bmschmidt/wordVectors")
-# }
-
-library(wordVectors)
 
 bulletin_corpus <- Corpus(VectorSource(df$Str))
 #df$Str[2]
@@ -778,7 +777,7 @@ bulletin_corpus[[1]]$content
 file_path <- paste0(dir, "COCA/")
 COCA_corpus <- Corpus(DirSource(file_path))
 COCA_corpus <- processCorpus(COCA_corpus)
-COCA_corpus[[1]]$content
+#COCA_corpus[[1]]$content
 
 COCA_corpus_file_path <- paste0(dir, "COCA_corp.txt")
 write.table(COCA_corpus$content, COCA_corpus_file_path, sep="\t")
@@ -897,7 +896,7 @@ for(i in 1:nrow(df)){
   df$lmax_entry_salaries_all_DWPandGEN[i] <- log(max(c(df$max_entry_salaries_all_DWP[i], df$max_entry_salaries_all_GEN[i]), na.rm = T))
   df$lmin_entry_salaries_all_DWPandGEN[i] <- log(min(c(df$min_entry_salaries_all_DWP[i], df$min_entry_salaries_all_GEN[i]), na.rm = T))
   df$lmean_growth_potential_DWPandGEN[i] <- log(mean(c(df$mean_growth_potential_DWP[i], df$mean_growth_potential_GEN[i]), na.rm = T))
-  }
+}
 
 u <- df$lmin_entry_salaries_all_DWPandGEN
 df$lmin_entry_salaries_all_DWPandGEN[which(is.infinite(u))] <- NA
@@ -914,7 +913,7 @@ df$lword_per_sent <- log(df$num_words / df$num_sent)
 mod <- lm(gender_score ~ lmin_entry_salaries_all_DWPandGEN +
             lmax_growth_potential_DWPandGEN +
             lword_per_sent, df)
-            #lnum_words + lnum_sent, df)
+#lnum_words + lnum_sent, df)
 summary(mod)  
 
 
@@ -927,6 +926,11 @@ gg <- gg + geom_point()
 gg <- gg + facet_wrap(~Type, ncol = 1, scales = "free")
 gg
 
+
+ind_look <- which(df$lmax_growth_potential_DWPandGEN < 9)
+df$JOB_CLASS_TITLE[ind_look]
+
+
 ind_outlier <- which(df$lmin_entry_salaries_all_GEN < 10)
 df[ind_outlier, c("JOB_CLASS_TITLE", "ENTRY_SALARY_GEN", "ENTRY_SALARY_DWP")]
 df <- df[-ind_outlier,]
@@ -934,8 +938,65 @@ df <- df[-ind_outlier,]
 
 
 
-ind_look <- which(df$lmax_growth_potential_DWPandGEN < 9)
-df$JOB_CLASS_TITLE[ind_look]
+
+
+
+
+
+
+file_path <- paste0(dir, "Job_Applicants_by_Gender_and_Ethnicity.csv")
+df_div <- read.csv(file_path, stringsAsFactors = F)
+nrow(df_div)
+df_div$Job.Number <- gsub("(\\d{4}).*", "\\1", df_div$Job.Number)
+df_div$Job.Number <- gsub("[A-Z][a-z]", "", df_div$Job.Number)
+df_div$Job.Number <- str_trim(df_div$Job.Number)
+df_log <- as.data.frame(apply(df_div[, 5:13], 2, log))
+list_ind_inf <- apply(df_log, 2, function(x) which(is.infinite(x)))
+# list_ind_nan <- apply(df_log, 2, function(x) which(is.nan(x)))
+# list_ind_na <- apply(df_log, 2, function(x) which(is.na(x)))
+for(i in 1:ncol(df_log)){
+  df_log[list_ind_inf[[i]], i] <- 0
+  # df_log[list_ind_nan[[i]], i] <- 0
+  # df_log[list_ind_na[[i]], i] <- 0
+}
+colnames(df_log) <- paste0("l", colnames(df_div)[5:13])
+df_div <- cbind(df_div, df_log)
+colnames(df_div)[2] <- "JOB_CLASS_NO"
+df_div <- merge(df_div, df, by = "JOB_CLASS_NO")
+nrow(df_div)
+ind_rm <- which(df_div$lmin_entry_salaries_all_DWPandGEN < 5)
+df_div <- df_div[-ind_rm, ]
+gg <- ggplot(df_div, aes(x = lMale, y = lmin_entry_salaries_all_DWPandGEN))
+gg <- gg + geom_point()
+gg
+
+
+
+df_div$Asian2 <- as.numeric(df_div$Asian + df_div$Filipino)
+df_div$lAsian2 <- log(df_div$Asian2)
+u <- df_div$lAsian2
+df_div$lAsian2[which(is.infinite(u))] <- 0
+
+
+
+colnames(df_log)
+
+mod <- lm(lmin_entry_salaries_all_DWPandGEN ~ lFemale +
+            lMale, df_div)
+summary(mod)
+
+
+mod <- lm(lmin_entry_salaries_all_DWPandGEN ~ lBlack +
+            lHispanic + lAsian2 + lCaucasian +
+            lAmerican.Indian..Alaskan.Native, df_div)
+summary(mod)
+
+mod <- lm(lmax_growth_potential_DWPandGEN ~ lBlack +
+            lHispanic + lAsian2 + lCaucasian +
+            lAmerican.Indian..Alaskan.Native, df_div)
+summary(mod)
+
+
 
 
 
