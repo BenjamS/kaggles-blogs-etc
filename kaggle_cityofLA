@@ -2,25 +2,26 @@
 #http://people.cs.uchicago.edu/~ravenben/publications/pdf/gender-cscw18.pdf
 options(warn = -1); options(scipen = 999)
 #======================================================
-#dir <- '../input/cityofla//CityofLA//Job Bulletins/'
-dir <- "CityofLA/"
-#dir <- "D:/OneDrive - CGIAR/Documents/kaggle/CityofLA/"
+#dir <- '../input/cityofla//CityofLA//'
+#dir <- "CityofLA/"
+dir <- "D:/OneDrive - CGIAR/Documents/kaggle/CityofLA/"
 bulletin_folder <- "Job Bulletins/"
 #======================================================
 # Required libraries, load yourselves!
-pkgs <- c("tidyverse", "tidytext", "tm", "tokenizers")
+pkgs <- c("tidyverse", "tidytext", "tm", "tokenizers", "rword2vec", "readr")
 for (pkg in pkgs) {
   if (! (pkg %in% rownames(installed.packages()))){install.packages(pkg)}
   library(pkg, character.only = TRUE)
 }
 rm(pkgs, pkg)
-if (!require(wordVectors)) {
-  if (!(require(devtools))) {
-    install.packages("devtools")
-  }
-  devtools::install_github("bmschmidt/wordVectors")
-}
-library(wordVectors)
+
+# if (!require(wordVectors)) {
+#   if (!(require(devtools))) {
+#     install.packages("devtools")
+#   }
+#   devtools::install_github("bmschmidt/wordVectors")
+# }
+# library(wordVectors)
 gc()
 #======================================================
 # Define functions
@@ -620,8 +621,6 @@ df$num_sent <- nsent_vec
 
 
 
-
-
 removeURL <- function(x) gsub("http:[[:alnum:]]*", "", x)
 processCorpus <- function (corpus)
 {
@@ -630,11 +629,16 @@ processCorpus <- function (corpus)
   corpus <- tm_map(corpus, removeNumbers)
   corpus <- tm_map(corpus, removePunctuation, preserve_intra_word_dashes = TRUE)
   corpus <- tm_map(corpus, removeWords, stopwords("english"))
-  corpus <- tm_map(corpus, stemDocument, language="english")
+  corpus <- tm_map(corpus, stemDocument, language = "english")
   corpus <- tm_map(corpus, stripWhitespace)
   corpus <- tm_map(corpus, function (x) {
     gsub("\\s*(?<!\\B|-)\\d+(?!\\B|-)\\s*", "", x, perl = TRUE) })
+  corpus <- tm_map(corpus, function (x) {
+    gsub("\\s[a-z]{1}\\s", "", x) })
   corpus <- tm_map(corpus, stripWhitespace)
+  corpus <- tm_map(corpus, str_trim)
+  
+  
   return (corpus)
 }
 
@@ -764,6 +768,37 @@ colnames(in_mat)[ind]
 
 
 
+semantic_alignment <- function(txt_to_assess, df_wordVecs, list_semantic_poles){
+  
+  general_vocab <- df_wordVecs$Word
+  bulletin_vocab <- unlist(str_split(txt_to_assess, " "))
+  # ind_keep <- which(this_vocab %in% general_vocab)
+  # this_vocab <- this_vocab[ind_keep]
+  
+  ind_bulletin_vocab <- which(general_vocab %in% bulletin_vocab)
+  df_bulletin_vecs <- df_wordVecs[ind_bulletin_vocab, -1]
+  bulletinVec <- colSums(df_bulletin_vecs) / (nrow(df_bulletin_vecs) - 1)
+  
+  pole_1_vec <- list_semantic_poles[[1]]
+  pole_2_vec <- list_semantic_poles[[2]]
+  
+  semantic_alignment_pole_1 <- as.numeric(lsa::cosine(bulletinVec, pole_1_vec))
+  semantic_alignment_pole_2 <- as.numeric(lsa::cosine(bulletinVec, pole_2_vec))
+  
+  semantic_score <- semantic_alignment_pole_1 - semantic_alignment_pole_2
+  print(semantic_score)
+  return(semantic_score)
+  
+}
+
+
+get_average_wordVector <- function(this_semantic_pole, df_wordVecs){
+  ind_these_wordVecs <- which(df_wordVecs$Word %in% this_semantic_pole)
+  df_these_wordVecs <- df_wordVecs[ind_these_wordVecs, -1]
+  average_semantic_vec <- colSums(df_these_wordVecs) / (nrow(df_these_wordVecs) - 1)
+  
+}
+
 
 
 
@@ -773,95 +808,104 @@ bulletin_corpus <- Corpus(VectorSource(df$Str))
 bulletin_corpus <- processCorpus(bulletin_corpus)
 bulletin_corpus[[1]]$content
 
-
 file_path <- paste0(dir, "COCA/")
 COCA_corpus <- Corpus(DirSource(file_path))
 COCA_corpus <- processCorpus(COCA_corpus)
 #COCA_corpus[[1]]$content
-
+length(COCA_corpus)
 COCA_corpus_file_path <- paste0(dir, "COCA_corp.txt")
-write.table(COCA_corpus$content, COCA_corpus_file_path, sep="\t")
-#prep_word2vec(origin = "corp.txt", destination = "corp2.txt", lowercase = F, bundle_ngrams = 3, force = T)
-#x <- readLines("corp2.txt")
-model = train_word2vec(COCA_corpus_file_path, "corp_vectors.bin", vectors = 200, threads = 4, window = 12, iter = 5, negative_samples = 0, force = T)
-#rm(corpus); gc()
-#model = read.vectors("corp_vectors.bin")
-#-------------------------------------------
-#dimnames(model)[[1]] <- gsub("dash", "-", dimnames(model)[[1]])
-COCA_vocab <- dimnames(model)[[1]]
-COCA_vocab[80:110]
+write.table(COCA_corpus$content, COCA_corpus_file_path, sep = "\t")
+wordvec_length <- 200
+model <- word2vec(layer1_size = wordvec_length, train_file = COCA_corpus_file_path, output_file = "vec.bin", binary = 1, num_threads = 128)
+# word2phrase(train_file = COCA_corpus_file_path, output_file = "vec.txt")
+# model <- word2vec(train_file = "vec.txt", output_file = "vec2.bin", binary = 1, num_threads = 128)
+# dist = distance(file_name = "vec2.bin", search_word = c("man", "men", "male"), num = 10)
+# dist
+# vocab_count(file_name = COCA_corpus_file_path, vocab_file = "vocab.txt", min_count = 20)
+# COCA_vocab <- read.table("vocab.txt")
+# colnames(COCA_vocab) <- c("Word", "Freq")
+# head(COCA_vocab)
+#dist = distance(file_name = "vec.bin", search_word = "man", num = 10)
+# dist
 
-COCA_vocab[grep("excel", COCA_vocab)]
-model[["king"]] - model[[c("man","men")]] + model[[c("woman","women")]]
-model[["male"]] - model[[c("domin","exclud")]] + model[[c("communal","inclus", "share", "collabor")]]
-feminine_gendered <- c("feminin", "femal", "woman", "women", "communal", "includ")
-masculine_gendered <- c("man", "men", "male", "exclud", "domin")
-cosineSimilarity(model[[c(feminine_gendered, masculine_gendered), average = F]], model[[c(feminine_gendered, masculine_gendered), average = F]])
-#cosineSimilarity(model[[c("caucasian", "white", "black", "ethnic", "latin", "asian"), average = F]], model[[c("caucasian", "white", "black", "ethnic", "latin", "asian"), average = F]])
+bin_to_txt("vec.bin", "vector.txt")
+#df_wordvec = as.data.frame(read.table("vector.txt", skip = 1))
+#library(readr)
 
-#as.numeric(model[["feminin"]])
+df_wordVecs <- as.data.frame(read_delim("vector.txt", 
+                                        skip = 1, delim = " ",
+                                        col_names = c("Word", paste0("E", 1:wordvec_length))))
+df_wordVecs <- df_wordVecs[-nrow(df_wordVecs), ]
+global_vocab <- df_wordVecs$Word
+length(global_vocab)
+class(df_wordVecs$Word)
+grep("white", global_vocab)
+global_vocab[grep("hind", global_vocab)]
+distance(file_name = "vec.bin", search_word = "india", num = 10)
 
+feminine_semantic_pole <- c("feminin", "femal", "woman", "women", "communal", "inclus")
+masculine_semantic_pole <- c("man", "men", "male", "domin", "exclus")
+caucasian_semantic_pole <- c("white", "american")
+african_american_semantic_pole <- c("african-american", "black", "american")
+latino_semantic_pole <- c("hispan", "latin", "american")
+asian_semantic_pole <- c("asian", "southeast", "chines", "american")
 
+fem_semantic_vec <- get_average_wordVector(feminine_semantic_pole, df_wordVecs)
+masc_semantic_vec <- get_average_wordVector(masculine_semantic_pole, df_wordVecs)
+caucas_semantic_vec <- get_average_wordVector(caucasian_semantic_pole, df_wordVecs)
+afAmer_semantic_vec <- get_average_wordVector(african_american_semantic_pole, df_wordVecs)
+latino_semantic_vec <- get_average_wordVector(latino_semantic_pole, df_wordVecs)
+asian_semantic_vec <- get_average_wordVector(asian_semantic_pole, df_wordVecs)
 
-fem_vec <- as.numeric(model[[feminine_gendered]])
-mascul_vec <- as.numeric(model[[masculine_gendered]])
+list_semantic_poles <- list(caucas_semantic_vec, latino_semantic_vec)
 
-fem_vec %*% mascul_vec
+outlist <- map(bulletin_corpus$content, semantic_alignment, df_wordVecs, list_semantic_poles)
+fem_semanticAlignment_score <- do.call(c, outlist)
 
+hist(fem_semanticAlignment_score)
 
-gender_score_vec <- c()
-caucas_score_vec <- c()
-for(i in 1:nrow(df)){
-  print(i)
-  this_vocab <- unlist(str_split(bulletin_corpus$content[i], " "))  # or bulletin_corpus[[i]]$content
-  ind_keep <- which(this_vocab %in% COCA_vocab)
-  this_vocab <- this_vocab[ind_keep]
-  
-  feminin_aligned <- cosineSimilarity(model[[this_vocab]], model[[feminine_gendered]])
-  masculin_aligned <- cosineSimilarity(model[[this_vocab]], model[[masculine_gendered]])
-  gender_score <- feminin_aligned - masculin_aligned
-  caucas_score <- cosineSimilarity(model[[this_vocab]], model[[c("white", "caucasian")]])
-  print(gender_score)
-  gender_score_vec[i] <- gender_score
-  caucas_score_vec[i] <- caucas_score
-  
-  # feminin_aligned <- c()
-  # masculin_aligned <- c()
-  # caucas_aligned <- c()
-  # for(j in 1:length(this_vocab)){
-  #   this_word <- this_vocab[j]
-  #   feminin_aligned[j] <- cosineSimilarity(model[[this_word]], model[[feminine_gendered]])
-  #   masculin_aligned[j] <- cosineSimilarity(model[[this_word]], model[[masculine_gendered]])
-  #   caucas_aligned[j] <- cosineSimilarity(model[[this_word]], model[[c("white", "caucasian")]])
-  #   
-  # }
-  # ind_nan <- which(is.nan(feminin_aligned))
-  # if(length(ind_nan) != 0){
-  #   g_aligned <- feminin_aligned[-ind_nan] - masculin_aligned[-ind_nan]
-  #   caucas_aligned <- caucas_aligned[-ind_nan]
-  # }else{
-  #   g_aligned <- feminin_aligned - masculin_aligned
-  # }
-  # g_score <- mean(g_aligned)
-  # cauc_score <- mean(caucas_aligned)
-  # print(g_score)
-  # print(cauc_score)
-  # gender_score[i] <- g_score
-  # caucas_score[i] <- cauc_score
-}
+q <- quantile(fem_semanticAlignment_score, probs = 0.95)
+ind_top <- which(fem_semanticAlignment_score > as.numeric(q))
+ind_top_ordered <- ind_top[order(fem_semanticAlignment_score[ind_top], decreasing = T)]
+data.frame(Jobs_with_highest_feminine_alignment = df$JOB_CLASS_TITLE[ind_top_ordered],
+           Gender_score = fem_semanticAlignment_score[ind_top_ordered])
 
-hist(caucas_score_vec)
-hist(gender_score_vec)
-q <- quantile(gender_score_vec, probs = 0.95)
-ind_top <- which(gender_score_vec > as.numeric(q))
-file_names[ind_top]
-q <- quantile(-gender_score_vec, probs = 0.95)
-ind_bottom <- which(-gender_score_vec > as.numeric(q))
-file_names[ind_bottom]
+q <- quantile(-fem_semanticAlignment_score, probs = 0.95)
+ind_bottom <- which(-fem_semanticAlignment_score > as.numeric(q))
+ind_bottom_ordered <- ind_bottom[order(fem_semanticAlignment_score[ind_bottom], decreasing = F)]
+data.frame(Jobs_with_highest_masculine_alignment = df$JOB_CLASS_TITLE[ind_bottom_ordered],
+           Gender_score = fem_semanticAlignment_score[ind_bottom_ordered])
 
 mean(df$min_entry_salaries_all_GEN[ind_top], na.rm = T)
 mean(df$min_entry_salaries_all_GEN[ind_bottom], na.rm = T)
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#data.frame(df$JOB_CLASS_TITLE[1:10], file_names[1:10])
+# nrow(df)
+# length(file_names)
 
 
 # df$lmean_entry_salaries_all_GEN <- log(df$mean_entry_salaries_all_GEN)
@@ -907,14 +951,21 @@ df$lmin_growth_potential_DWPandGEN[which(is.infinite(u))] <- NA
 u <- df$lmax_growth_potential_DWPandGEN
 df$lmax_growth_potential_DWPandGEN[which(is.infinite(u))] <- NA
 
-df$gender_score <- gender_score_vec
+df$fem_semAlign_score <- fem_semanticAlignment_score
 df$lword_per_sent <- log(df$num_words / df$num_sent)
 
-mod <- lm(gender_score ~ lmin_entry_salaries_all_DWPandGEN +
+mod <- lm(fem_semAlign_score ~ lmax_entry_salaries_all_DWPandGEN +
             lmax_growth_potential_DWPandGEN +
-            lword_per_sent, df)
+            lnum_words + lnum_sent, df)
 #lnum_words + lnum_sent, df)
 summary(mod)  
+
+mod <- lm(lmax_entry_salaries_all_DWPandGEN ~ fem_semAlign_score +
+            lmax_growth_potential_DWPandGEN +
+            lword_per_sent + lnum_sent, df)
+#lnum_words + lnum_sent, df)
+summary(mod)  
+
 
 
 
@@ -931,7 +982,7 @@ ind_look <- which(df$lmax_growth_potential_DWPandGEN < 9)
 df$JOB_CLASS_TITLE[ind_look]
 
 
-ind_outlier <- which(df$lmin_entry_salaries_all_GEN < 10)
+ind_outlier <- which(df$lmin_entry_salaries_all_DWPandGEN < 10)
 df[ind_outlier, c("JOB_CLASS_TITLE", "ENTRY_SALARY_GEN", "ENTRY_SALARY_DWP")]
 df <- df[-ind_outlier,]
 
@@ -1003,3 +1054,81 @@ summary(mod)
 model[1:3000,] %>% closest_to("woman", n = 30)
 
 model[1:3000,] %>% cosineSimilarity(male_vec)
+
+
+
+
+
+
+
+
+
+#prep_word2vec(origin = "corp.txt", destination = "corp2.txt", lowercase = F, bundle_ngrams = 3, force = T)
+#x <- readLines("corp2.txt")
+#model = train_word2vec(COCA_corpus_file_path, "corp_vectors.bin", vectors = 200, threads = 4, window = 12, iter = 5, negative_samples = 0, force = T)
+#rm(corpus); gc()
+#model = read.vectors("corp_vectors.bin")
+#-------------------------------------------
+#dimnames(model)[[1]] <- gsub("dash", "-", dimnames(model)[[1]])
+# COCA_vocab <- dimnames(model)[[1]]
+# COCA_vocab[80:110]
+# COCA_vocab[grep("excel", COCA_vocab)]
+# model[["king"]] - model[[c("man","men")]] + model[[c("woman","women")]]
+# model[["male"]] - model[[c("domin","exclud")]] + model[[c("communal","inclus", "share", "collabor")]]
+# feminine_gendered <- c("feminin", "femal", "woman", "women", "communal", "includ")
+# masculine_gendered <- c("man", "men", "male", "exclud", "domin")
+# cosineSimilarity(model[[c(feminine_gendered, masculine_gendered), average = F]], model[[c(feminine_gendered, masculine_gendered), average = F]])
+#cosineSimilarity(model[[c("caucasian", "white", "black", "ethnic", "latin", "asian"), average = F]], model[[c("caucasian", "white", "black", "ethnic", "latin", "asian"), average = F]])
+#as.numeric(model[["feminin"]])
+# fem_vec <- as.numeric(model[[feminine_gendered]])
+# mascul_vec <- as.numeric(model[[masculine_gendered]])
+
+# fem_vec %*% masc_vec
+
+
+
+
+gender_score_vec <- c()
+caucas_score_vec <- c()
+for(i in 1:nrow(df)){
+  #print(i)
+  #this_vocab <- unlist(str_split(bulletin_corpus$content[i], " "))  # or bulletin_corpus[[i]]$content
+  #ind_keep <- which(this_vocab %in% COCA_vocab)
+  #ind_keep <- which(this_vocab %in% COCA_vocab$Word)
+  #ind_keep <- which(this_vocab %in% df_wordVecs$Word)
+  
+  # fem_alignment <- as.numeric(lsa::cosine(bulletinVec, fem_vec))
+  # masc_alignment <- as.numeric(lsa::cosine(bulletinVec, masc_vec))
+  
+  # feminin_aligned <- cosineSimilarity(model[[this_vocab]], model[[feminine_gendered]])
+  # masculin_aligned <- cosineSimilarity(model[[this_vocab]], model[[masculine_gendered]])
+  # gender_score <- feminin_aligned - masculin_aligned
+  # caucas_score <- cosineSimilarity(model[[this_vocab]], model[[c("white", "caucasian")]])
+  # print(gender_score)
+  # gender_score_vec[i] <- gender_score
+  # caucas_score_vec[i] <- caucas_score
+  
+  # feminin_aligned <- c()
+  # masculin_aligned <- c()
+  # caucas_aligned <- c()
+  # for(j in 1:length(this_vocab)){
+  #   this_word <- this_vocab[j]
+  #   feminin_aligned[j] <- cosineSimilarity(model[[this_word]], model[[feminine_gendered]])
+  #   masculin_aligned[j] <- cosineSimilarity(model[[this_word]], model[[masculine_gendered]])
+  #   caucas_aligned[j] <- cosineSimilarity(model[[this_word]], model[[c("white", "caucasian")]])
+  #   
+  # }
+  # ind_nan <- which(is.nan(feminin_aligned))
+  # if(length(ind_nan) != 0){
+  #   g_aligned <- feminin_aligned[-ind_nan] - masculin_aligned[-ind_nan]
+  #   caucas_aligned <- caucas_aligned[-ind_nan]
+  # }else{
+  #   g_aligned <- feminin_aligned - masculin_aligned
+  # }
+  # g_score <- mean(g_aligned)
+  # cauc_score <- mean(caucas_aligned)
+  # print(g_score)
+  # print(cauc_score)
+  # gender_score[i] <- g_score
+  # caucas_score[i] <- cauc_score
+}
