@@ -3,8 +3,8 @@
 options(warn = -1); options(scipen = 999)
 #======================================================
 #dir <- '../input/cityofla//CityofLA//'
-#dir <- "CityofLA/"
-dir <- "D:/OneDrive - CGIAR/Documents/kaggle/CityofLA/"
+dir <- "CityofLA/"
+#dir <- "D:/OneDrive - CGIAR/Documents/kaggle/CityofLA/"
 bulletin_folder <- "Job Bulletins/"
 #======================================================
 # Required libraries, load yourselves!
@@ -391,7 +391,7 @@ print(df_look)
 # and file content. We see here that in most of these cases this is because
 # no job class number is reported in the file name.
 
-# Our job class number getter allows for NA output when no job
+# Our job class number getter function allows for NA output when no job
 # class number is found. Are there any such instances?
 ind_NA <- which(is.na(jobClassNum_from_txt))
 print(file_names[ind_NA])
@@ -407,27 +407,79 @@ ind_rm <- which(file_names == special_case)
 file_names <- file_names[-ind_rm]
 length(file_names)
 
+# 2) RETRIEVING SPECIFIC INFO FROM TEXT
+# The host has requested retrieval of the following info from the job bulletins:
+stopWords <- stopwords("en")
+list_df <- list()
+for(i in 1:30){
+  file_name <- file_names[i]
+  bulletin_lines <- get_bulletinLines(file_name, file_path, quietly = T)
+  section_headings <- get_sectionHeadings(bulletin_lines)
+  str_reqMinquals <- get_sectionTxt(section_name = "REQUIREMENT",
+                                    bulletin_lines,
+                                    section_headings)
+  
+  req_vec <- unlist(strsplit(str_reqMinquals, "[0-9]\\."))
+  ind_rm <- which(req_vec == "")
+  if(length(ind_rm) != 0){req_vec <- req_vec[-ind_rm]}
+  #req_vec
+  ind_exp <- grep("experience", req_vec)
+  if(length(ind_exp) != 0){
+    exp_job_class_title_vec <- c()
+    exp_length_vec <- c()
+    full_time_part_time <- c()
+    for(j in 1:length(ind_exp)){
+      this_exp_req <- req_vec[ind_exp[j]]
+      pattern_num_before_exp <- "^.*\\b(one|two|three|four|five|six|seven|eight|nine|ten)\\W+(?:\\w+\\W+){1,6}?(full-time|full time|part-time|part time)\\b.*$"
+      #pattern_num_after_exp <- "^.*\\bexperience\\W+(?:\\w+\\W+){1,6}?(one|two|three|four|five|six|seven|eight|nine|ten)\\b.*$"
+      #\bword1\W+(?:\w+\W+){1,6}?word2\b
+      #\b(?:word1\W+(?:\w+\W+){1,6}?word2|word2\W+(?:\w+\W+){1,6}?word1)\b
+      #this_pattern <- paste(pattern_num_before_exp, pattern_num_after_exp, collapse = "|")
+      exp_length_vec[j] <- gsub(pattern_num_before_exp, "\\1", this_exp_req, ignore.case = T)
+      pattern_fullPartTime_before_exp <- "^.*\\b(full-time|full time|part-time|part time)\\W+(?:\\w+\\W+){1,6}?experience\\b.*$"
+      full_time_part_time[j] <- gsub(pattern_fullPartTime_before_exp, "\\1", this_exp_req, ignore.case = T)
+      pattern_jobTitle <- "^.*\\b(as a|as an)\\W+(\\w+\\W+\\w+\\W+\\w+).*$"
+      xx <- gsub(pattern_jobTitle, "\\2", this_exp_req, ignore.case = T)
+      if(length(xx) != 0){
+        if(!is.na(xx)){
+          if(nchar(xx) > 15){
+            exp_job_class_title_vec[j] <- NA
+          }else{
+            exp_job_class_title_vec[j] <- unlist(xx)[!(unlist(xx) %in% stopWords)]
+            
+          }
+          
+        }
+        
+        
+      }
+      #gsub("^.*\\s([^ ]*)\\s([^ ]*)\\s([^ ]*)\\sexperience.*$", "\\1 \\2 \\3", this_exp_req, ignore.case = T)
+      # exp_length_vec[j] <- sub("^.?\\s([^ ]*)\\s(year|years|month|months)\\s.*", "\\1", this_exp_req)
+      # sub("^.?(\\s+)(.+?)(\\s+)(year?|years?|month?|months?)\\s.*", "\\2", this_exp_req)
+      # if(length(grep("experience[:punct:]", this_exp_req)) != 0){
+      #   xx <- gsub("^.*\\s([^ ]*)\\s([^ ]*)\\s([^ ]*)\\sexperience.*$", "\\1 \\2 \\3", this_exp_req, ignore.case = T)
+      # }else{
+      #   xx <- gsub("^.*experience (in a|in an|as a|as an|with the city of los angeles)\\s([^ ]*)\\s([^ ]*)\\s([^ ]*).*$", "\\2 \\3 \\4", this_exp_req, ignore.case = T)
+      # }
+    }
+    
+    out_df <- data.frame(file_name = rep(file_name, length(exp_length_vec)), exp_job_class_title_vec, exp_length_vec, full_time_part_time)
+  }else{
+    out_df <- data.frame(file_name = file_name, NA, NA, NA)
+  }
+  
+  
+  print(file_name)
+  #print(req_vec[ind_exp])
+  print(exp_job_class_title_vec)
+  print(exp_length_vec)
+  print(full_time_part_time)
+  
+  list_df[[i]] <- out_df
+  
+}
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+df_exp <- do.call(rbind, list_df)
 
 
 
@@ -633,9 +685,9 @@ processCorpus <- function (corpus)
   corpus <- tm_map(corpus, stripWhitespace)
   corpus <- tm_map(corpus, function (x) {
     gsub("\\s*(?<!\\B|-)\\d+(?!\\B|-)\\s*", "", x, perl = TRUE) })
-  corpus <- tm_map(corpus, function (x) {
-    gsub("\\s[a-z]{1}\\s", "", x) })
-  corpus <- tm_map(corpus, stripWhitespace)
+  # corpus <- tm_map(corpus, function (x) {
+  #   gsub("\\s[a-z]{1}\\s", "", x) })
+  # corpus <- tm_map(corpus, stripWhitespace)
   corpus <- tm_map(corpus, str_trim)
   
   
@@ -647,27 +699,42 @@ processCorpus <- function (corpus)
 # Finding structure/clustering in the data, topics
 #library(rJava)
 #install.packages("RWeka")
-library(RWeka)
-bulletin_corpus <- VCorpus(VectorSource(df$Str))
-#summary(corpus)  #check what went in
+# library(RWeka)
+# bulletin_corpus <- VCorpus(VectorSource(df$Str))
+# #summary(corpus)  #check what went in
+# bulletin_corpus <- processCorpus(bulletin_corpus)
+# 
+# dtm <- DocumentTermMatrix(corpus) 
+# dtm <- removeSparseTerms(dtm, 0.9)
+# #Sys.setenv(JAVA_HOME="")
+# TrigramTokenizer <- function(x) NGramTokenizer(x, Weka_control(min = 2, max = 3))
+# dtm_trigram <- TermDocumentMatrix(corpus, control = list(tokenize = TrigramTokenizer))
+# dtm_trigram <- removeSparseTerms(dtm_trigram, 0.9)
+# inspect(dtm_trigram[1:5,1:5])
+
+bulletin_corpus <- Corpus(VectorSource(df$Str))
+#summary(bulletin_corpus)  #check what went in
 bulletin_corpus <- processCorpus(bulletin_corpus)
+bulletin_corpus[[1]]$content
 
-dtm <- DocumentTermMatrix(corpus) 
+bulletin_corpus_file_path <- paste0(dir, "bulletin_corp.txt")
+write.table(bulletin_corpus$content, bulletin_corpus_file_path)
+word2phrase(train_file = bulletin_corpus_file_path, output_file = "bulletin_vec.txt")
+df_bullcorp <- read.table("bulletin_vec.txt")
+bulletin_corpus <- Corpus(VectorSource(df_bullcorp$x))
+dtm <- DocumentTermMatrix(bulletin_corpus)
 dtm <- removeSparseTerms(dtm, 0.9)
-#Sys.setenv(JAVA_HOME="")
-TrigramTokenizer <- function(x) NGramTokenizer(x, Weka_control(min = 2, max = 3))
-dtm_trigram <- TermDocumentMatrix(corpus, control = list(tokenize = TrigramTokenizer))
-dtm_trigram <- removeSparseTerms(dtm_trigram, 0.9)
-inspect(dtm_trigram[1:5,1:5])
+inspect(dtm[1:5, 1:5])
 
-df_dtmTri <- tidy(dtm_trigram)
-df_dtmTri <- df_dtmTri %>% spread(term, count)
-dim(df_dtmTri)
-df_dtmTri[is.na(df_dtmTri)] <- 0
-df_dtmTri$document <- df$JOB_CLASS_TITLE
-in_mat <- as.matrix(df_dtmTri[, -1])
+df_dtm <- tidy(dtm)
+colnames(df_dtm)[1] <- "DOCUMENT"
+df_dtm <- df_dtm %>% spread(term, count)
+dim(df_dtm)
+df_dtm[is.na(df_dtm)] <- 0
+df_dtm$DOCUMENT <- df$JOB_CLASS_TITLE
+in_mat <- as.matrix(df_dtm[, -1])
 cormat <- cor(in_mat)
-image(cormat)
+#image(cormat)
 
 max_graph <- 10
 
@@ -724,6 +791,18 @@ if(ncol(collModes) > max_graph){
   n_collModes_to_graph <- max_graph
 }
 #-----------------------------
+
+df_cmodes <- as.data.frame(collModes^2)
+words <- colnames(df_dtm[-1])
+this_mode <- df_cmodes$V2
+q <- quantile(this_mode, probs = 0.95)
+ind_top <- which(this_mode > as.numeric(q))
+ind_top_ordered <- ind_top[order(this_mode[ind_top], decreasing = T)]
+data.frame(highest = words[ind_top_ordered],
+           score = this_mode[ind_top_ordered])
+
+
+
 library(mclust)
 # Model-based-clustering (takes a little bit -- Correctly chooses 9 as optimal number of clusters!)
 #class(df_dtmTri)
@@ -731,10 +810,11 @@ mc <- Mclust(t(in_mat))
 # Print a summary
 summary(mc)
 
+library(factoextra)
 fviz_cluster(mc, frame.type = "norm", geom = "point")
 
-df_mc <- data.frame(mcClust = mc$classification, Word = colnames(df_dtmTri)[-1])
-df_mc[which(df_mc$mcClust == 1), 2]
+df_mc <- data.frame(mcClust = mc$classification, Word = colnames(df_dtm)[-1])
+df_mc[which(df_mc$mcClust == 1), ]
 df_mc[which(df_mc$mcClust == 2), ]
 df_mc$Word[which(df_mc$mcClust == 3)]
 df_mc[which(df_mc$mcClust == 4), ]
@@ -802,11 +882,6 @@ get_average_wordVector <- function(this_semantic_pole, df_wordVecs){
 
 
 
-bulletin_corpus <- Corpus(VectorSource(df$Str))
-#df$Str[2]
-#summary(bulletin_corpus)  #check what went in
-bulletin_corpus <- processCorpus(bulletin_corpus)
-bulletin_corpus[[1]]$content
 
 file_path <- paste0(dir, "COCA/")
 COCA_corpus <- Corpus(DirSource(file_path))
@@ -815,9 +890,12 @@ COCA_corpus <- processCorpus(COCA_corpus)
 length(COCA_corpus)
 COCA_corpus_file_path <- paste0(dir, "COCA_corp.txt")
 write.table(COCA_corpus$content, COCA_corpus_file_path, sep = "\t")
+word2phrase(train_file = COCA_corpus_file_path, output_file = "COCA_vec.txt")
 wordvec_length <- 200
-model <- word2vec(layer1_size = wordvec_length, train_file = COCA_corpus_file_path, output_file = "vec.bin", binary = 1, num_threads = 128)
-# word2phrase(train_file = COCA_corpus_file_path, output_file = "vec.txt")
+# model <- word2vec(layer1_size = wordvec_length, train_file = COCA_corpus_file_path, output_file = "vec.bin", binary = 1, num_threads = 128)
+model <- word2vec(layer1_size = wordvec_length, train_file = "COCA_vec.txt", output_file = "vec.bin", binary = 1, num_threads = 128)
+#--
+#--
 # model <- word2vec(train_file = "vec.txt", output_file = "vec2.bin", binary = 1, num_threads = 128)
 # dist = distance(file_name = "vec2.bin", search_word = c("man", "men", "male"), num = 10)
 # dist
