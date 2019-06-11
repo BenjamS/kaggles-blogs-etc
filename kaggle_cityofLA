@@ -408,50 +408,129 @@ file_names <- file_names[-ind_rm]
 length(file_names)
 
 # 2) RETRIEVING SPECIFIC INFO FROM TEXT
-# The host has requested retrieval of the following info from the job bulletins:
-stopWords <- stopwords("en")
-list_df <- list()
-for(i in 1:30){
+n_reqs <- c()
+n_subreqs <- c()
+for(i in 1:length(file_names)){
   file_name <- file_names[i]
+  print(file_name)
   bulletin_lines <- get_bulletinLines(file_name, file_path, quietly = T)
   section_headings <- get_sectionHeadings(bulletin_lines)
   str_reqMinquals <- get_sectionTxt(section_name = "REQUIREMENT",
                                     bulletin_lines,
                                     section_headings)
-  
+  n_reqs[i] <- str_count(str_reqMinquals, "\\b[0-9]\\.") + 1
+  n_subreqs[i] <- str_count(str_reqMinquals, "\\b[a-z]\\.") + 1
+}
+hist(n_reqs)
+length(which(n_reqs > 1))
+hist(n_subreqs)
+length(which(n_subreqs > 1))
+
+file_names[which(n_subreqs > 1)]
+#which(file_names == "SUPPLY SERVICES MANAGER 1865 092818.txt")
+
+# The host has requested retrieval of the following info from the job bulletins:
+file_names_subset <- file_names[which(n_subreqs > 1)]
+stopWords <- stopwords("en")
+list_df <- list()
+qq <- c()
+pattern_moYr_before_exp <- "^.*\\b(months|years)\\W+(?:\\w+\\W+){1,6}?(full-time|full time|part-time|part time|experience)\\b.*$"
+pattern_fullPartTime_before_exp <- "^.*\\b(full-time|full time|part-time|part time)\\W+(?:\\w+\\W+){1,6}?experience\\b.*$"
+pattern_jobTitle <- "^.*\\b(as a|as an|at the level of)\\W+(\\w+\\W+\\w+\\W+\\w+\\W+\\w+).*$"
+pattern_jobTitle_trimPunct <- "(^.*)[,;\\.].*$"
+oneToTen <- "(one|two|three|four|five|six|seven|eight|nine|ten)"
+#for(i in 1:length(file_names)){
+for(i in 1:length(file_names_subset)){
+  #file_name <- file_names[i]
+  file_name <- file_names_subset[i]
+  print(file_name)
+  bulletin_lines <- get_bulletinLines(file_name, file_path, quietly = T)
+  section_headings <- get_sectionHeadings(bulletin_lines)
+  str_reqMinquals <- get_sectionTxt(section_name = "REQUIREMENT",
+                                    bulletin_lines,
+                                    section_headings)
+  #-------------------
+  n_reqs <- str_count(str_reqMinquals, "\\b[0-9]\\.") + 1
+  #-------------------
   req_vec <- unlist(strsplit(str_reqMinquals, "[0-9]\\."))
   ind_rm <- which(req_vec == "")
   if(length(ind_rm) != 0){req_vec <- req_vec[-ind_rm]}
   #req_vec
   ind_exp <- grep("experience", req_vec)
+  req_exp_vec <- req_vec[ind_exp]
   if(length(ind_exp) != 0){
     exp_job_class_title_vec <- c()
     exp_length_vec <- c()
-    full_time_part_time <- c()
+    full_time_part_time_vec <- c()
+    jobClassFn_vec <- c()
+    jobClassFn_length_vec <- c()
     for(j in 1:length(ind_exp)){
-      this_exp_req <- req_vec[ind_exp[j]]
-      pattern_num_before_exp <- "^.*\\b(one|two|three|four|five|six|seven|eight|nine|ten)\\W+(?:\\w+\\W+){1,6}?(full-time|full time|part-time|part time)\\b.*$"
+      this_exp_req <- req_exp_vec[j]
+      # Required experience length
       #pattern_num_after_exp <- "^.*\\bexperience\\W+(?:\\w+\\W+){1,6}?(one|two|three|four|five|six|seven|eight|nine|ten)\\b.*$"
       #\bword1\W+(?:\w+\W+){1,6}?word2\b
       #\b(?:word1\W+(?:\w+\W+){1,6}?word2|word2\W+(?:\w+\W+){1,6}?word1)\b
       #this_pattern <- paste(pattern_num_before_exp, pattern_num_after_exp, collapse = "|")
-      exp_length_vec[j] <- gsub(pattern_num_before_exp, "\\1", this_exp_req, ignore.case = T)
-      pattern_fullPartTime_before_exp <- "^.*\\b(full-time|full time|part-time|part time)\\W+(?:\\w+\\W+){1,6}?experience\\b.*$"
-      full_time_part_time[j] <- gsub(pattern_fullPartTime_before_exp, "\\1", this_exp_req, ignore.case = T)
-      pattern_jobTitle <- "^.*\\b(as a|as an)\\W+(\\w+\\W+\\w+\\W+\\w+).*$"
-      xx <- gsub(pattern_jobTitle, "\\2", this_exp_req, ignore.case = T)
-      if(length(xx) != 0){
-        if(!is.na(xx)){
-          if(nchar(xx) > 15){
+      # Specific types of experience (job_class_function)
+      n_subreqs <- str_count(this_exp_req, "\\b[a-z]\\.") + 1
+      if(n_subreqs > 1){
+        if(length(grep("years of which", this_exp_req)) != 0){
+          spec_exp_clause_start <- paste(oneToTen, "years of which")
+          jobClassFn_length_vec[j] <- gsub(paste0("^.*", spec_exp_clause_start, ".*$"), "\\1", this_exp_req)
+          xx_this_exp_req <- unlist(str_split(this_exp_req, spec_exp_clause_start))
+          this_exp_req <- xx_this_exp_req[1]
+          jobClassFn_vec[j] <- paste(xx_this_exp_req[-1], collapse = " ")
+        }else{
+          pattern_spec_exp <- "^.*?\\b[a-z]\\.(.*)$"
+          jobClassFn_vec[j] <- gsub(pattern_spec_exp, "\\1", this_exp_req)
+          jobClassFn_length_vec[j] <- NA
+        }
+      }else{
+        jobClassFn_vec[j] <- NA
+        jobClassFn_length_vec[j] <- NA
+      }
+      
+      pattern_num_before_exp <- "^.*(one|two|three|four|five|six|seven|eight|nine|ten)\\W(?:\\w+\\W+){1,6}?(full-time|full time|part-time|part time|experience)\\b.*$"
+      xx_exp_length <- gsub(pattern_num_before_exp, "\\1", this_exp_req, ignore.case = T)
+      # Convert written number to digit
+      if(length(grep("one", xx_exp_length, ignore.case = T)) != 0){exp_length <- gsub("one", "1", xx_exp_length, ignore.case = T)}
+      if(length(grep("two", xx_exp_length, ignore.case = T)) != 0){exp_length <- gsub("two", "2", xx_exp_length, ignore.case = T)}
+      if(length(grep("three", xx_exp_length, ignore.case = T)) != 0){exp_length <- gsub("three", "3", xx_exp_length, ignore.case = T)}
+      if(length(grep("four", xx_exp_length, ignore.case = T)) != 0){exp_length <- gsub("four", "4", xx_exp_length, ignore.case = T)}
+      if(length(grep("five", xx_exp_length, ignore.case = T)) != 0){exp_length <- gsub("five", "5", xx_exp_length, ignore.case = T)}
+      if(length(grep("six", xx_exp_length, ignore.case = T)) != 0){exp_length <- gsub("six", "6", xx_exp_length, ignore.case = T)}
+      if(length(grep("seven", xx_exp_length, ignore.case = T)) != 0){exp_length <- gsub("seven", "7", xx_exp_length, ignore.case = T)}
+      if(length(grep("eight", xx_exp_length, ignore.case = T)) != 0){exp_length <- gsub("eight", "8", xx_exp_length, ignore.case = T)}
+      if(length(grep("nine", xx_exp_length, ignore.case = T)) != 0){exp_length <- gsub("nine", "9", xx_exp_length, ignore.case = T)}
+      if(length(grep("ten", xx_exp_length, ignore.case = T)) != 0){exp_length <- gsub("ten", "10", xx_exp_length, ignore.case = T)}
+      if(nchar(exp_length) > 90){
+        exp_length_vec[j] <- NA
+        }else{
+        # Months or years?
+        exp_length <- as.numeric(exp_length)
+        exp_length_units <- gsub(pattern_moYr_before_exp, "\\1", this_exp_req, ignore.case = T)
+        if(exp_length_units == "months"){exp_length <- exp_length / 12}
+        exp_length_vec[j] <- exp_length
+        }
+      # Full time or part time
+      full_time_part_time <- gsub(pattern_fullPartTime_before_exp, "\\1", this_exp_req, ignore.case = T)
+      if(nchar(full_time_part_time) > 90){full_time_part_time_vec[j] <- NA}else{full_time_part_time_vec[j] <- full_time_part_time}
+      # Required experience job title
+      xx_jobTitle <- gsub(pattern_jobTitle, "\\2", this_exp_req, ignore.case = T)
+      if(length(xx_jobTitle) != 0){
+        if(!is.na(xx_jobTitle)){
+          if(nchar(xx_jobTitle) > 80){
             exp_job_class_title_vec[j] <- NA
           }else{
-            exp_job_class_title_vec[j] <- unlist(xx)[!(unlist(xx) %in% stopWords)]
-            
+            # Trim commas etc. from required experience job title
+            xx_jobTitle <- gsub(pattern_jobTitle_trimPunct, "\\1", xx_jobTitle, ignore.case = T)
+            # Trim stop words from required experience job title
+            xx_jobTitle <- unlist(str_split(xx_jobTitle, " "))
+             xx_jobTitle <- xx_jobTitle[!(xx_jobTitle %in% stopWords)]
+             xx_jobTitle <- xx_jobTitle[!(unlist(str_split(xx_jobTitle, " ")) %in% stopWords)]
+          exp_job_class_title_vec[j] <- paste(xx_jobTitle, collapse = " ")
           }
-          
         }
-        
-        
       }
       #gsub("^.*\\s([^ ]*)\\s([^ ]*)\\s([^ ]*)\\sexperience.*$", "\\1 \\2 \\3", this_exp_req, ignore.case = T)
       # exp_length_vec[j] <- sub("^.?\\s([^ ]*)\\s(year|years|month|months)\\s.*", "\\1", this_exp_req)
@@ -462,13 +541,23 @@ for(i in 1:30){
       #   xx <- gsub("^.*experience (in a|in an|as a|as an|with the city of los angeles)\\s([^ ]*)\\s([^ ]*)\\s([^ ]*).*$", "\\2 \\3 \\4", this_exp_req, ignore.case = T)
       # }
     }
-    
-    out_df <- data.frame(file_name = rep(file_name, length(exp_length_vec)), exp_job_class_title_vec, exp_length_vec, full_time_part_time)
+    nrows_out <- length(exp_length_vec)
+    out_df <- data.frame(FILE_NAME = rep(file_name, nrows_out),
+                         EXP_LENGTH = exp_length_vec,
+                         FULL_TIME_PART_TIME = full_time_part_time_vec,
+                         EXP_JOB_CLASS_TITLE = exp_job_class_title_vec,
+                         JOB_CLASS_FUNCTION = jobClassFn_vec,
+                         job_class_function_length = jobClassFn_length_vec)
   }else{
-    out_df <- data.frame(file_name = file_name, NA, NA, NA)
+    out_df <- data.frame(FILE_NAME = file_name,
+                         EXP_LENGTH = NA,
+                         FULL_TIME_PART_TIME = NA,
+                         EXP_JOB_CLASS_TITLE = NA,
+                         JOB_CLASS_FUNCTION = NA,
+                         job_class_function_length = NA)
   }
   
-  
+  #out_df
   print(file_name)
   #print(req_vec[ind_exp])
   print(exp_job_class_title_vec)
@@ -477,7 +566,11 @@ for(i in 1:30){
   
   list_df[[i]] <- out_df
   
+  #qq[i] <- ifelse(length(grep("Armed Forces", req_exp_vec, ignore.case = T)) != 0, 1, 0)
+  #qq[i] <- qflag
 }
+
+#length(which(qq == 1))
 
 df_exp <- do.call(rbind, list_df)
 
