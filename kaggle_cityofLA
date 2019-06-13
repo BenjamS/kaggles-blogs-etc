@@ -514,12 +514,15 @@ file_names[which(n_reqs > 1)]
 #"AIRPORT INFORMATION SPECIALIST 1783 121115.txt" Req'd job exp length expressed in hours 
 file_names_subset <- file_names[which(n_subreqs > 1)]
 stopWords <- stopwords("en")
-list_df <- list()
+list_df_exp <- list()
+course_subjects_vec <- c()
+course_length_vec <- c()
+cours_count_vec <- c()
 pattern_num_before_exp <- "^.*(one|two|three|four|five|six|seven|eight|nine|ten)\\W(?:\\w+\\W+){1,6}?(full-time|full time|part-time|part time|experience)\\b.*$"
 pattern_spec_exp <- "^.*?\\b[a-z]\\.(.*)$"
 pattern_moYr_before_exp <- "^.*\\b(months|years)\\W+(?:\\w+\\W+){1,6}?(full-time|full time|part-time|part time|experience)\\b.*$"
 pattern_fullPartTime_before_exp <- "^.*\\b(full-time|full time|part-time|part time)\\W+(?:\\w+\\W+){1,6}?experience\\b.*$"
-pattern_jobTitle <- "^.*\\b(as a|as an|at the level of)\\W+(\\w+\\W+\\w+\\W+\\w+\\W+\\w+).*$"
+pattern_jobTitle <- "^.*\\b(as a|as an|at the level of|experience in)\\W+(\\w+\\W+\\w+\\W+\\w+\\W+\\w+).*$"
 pattern_jobTitle_trimPunct <- "(^.*)[,;\\.].*$"
 oneToTen <- "(one|two|three|four|five|six|seven|eight|nine|ten)"
 #for(i in 1:length(file_names)){
@@ -583,19 +586,23 @@ for(i in 1:length(file_names_subset)){
     
     nrows_out <- length(exp_length_vec)
     out_df_exp <- data.frame(FILE_NAME = rep(file_name, nrows_out),
-                         EXP_LENGTH = exp_length_vec,
-                         FULL_TIME_PART_TIME = full_time_part_time_vec,
-                         EXP_JOB_CLASS_TITLE = exp_job_class_title_vec,
-                         JOB_CLASS_FUNCTION = jobClassFn_vec,
-                         job_class_function_length = jobClassFn_length_vec)
+                             EXP_LENGTH = exp_length_vec,
+                             FULL_TIME_PART_TIME = full_time_part_time_vec,
+                             EXP_JOB_CLASS_TITLE = exp_job_class_title_vec,
+                             JOB_CLASS_FUNCTION = jobClassFn_vec,
+                             job_class_function_length = jobClassFn_length_vec)
   }else{
     out_df_exp <- data.frame(FILE_NAME = file_name,
-                         EXP_LENGTH = NA,
-                         FULL_TIME_PART_TIME = NA,
-                         EXP_JOB_CLASS_TITLE = NA,
-                         JOB_CLASS_FUNCTION = NA,
-                         job_class_function_length = NA)
+                             EXP_LENGTH = NA,
+                             FULL_TIME_PART_TIME = NA,
+                             EXP_JOB_CLASS_TITLE = NA,
+                             JOB_CLASS_FUNCTION = NA,
+                             job_class_function_length = NA)
   }
+  
+  
+  list_df_exp[[i]] <- out_df_exp
+  
   #===================================================
   # EXTRACT REQUIRED EDUCATION
   # (COURSE_COUNT, COURSE_LENGTH, COURSE_SUBJECT, 
@@ -609,28 +616,27 @@ for(i in 1:length(file_names_subset)){
     #this_pattern <- "^.*\\b(particular phrase)\\W+((?:\\w+\\W+){3}\\w+).*$"  
     this_educ_req <- req_educ_vec[1]
     #pattern_subject <- "^.*\\b(degree in|,|or)\\W+((?:\\w+\\W+){2}\\w+)\\W+(,|or|).*$"
-    pattern_subject <- "^.*\\b(degree in)\\W+(.*)\\W+(,|or).*$"
-    gsub(pattern_subject, "\\2", this_educ_req)
-    course_subjects[i] <- gsub(pattern_subject, "\\2", this_educ_req)
+    pattern_subject <- "^.*\\b(university in|degree in)\\W+(.*)\\W+(?=or).*$"
+    gsub(pattern_subject, "\\2", this_educ_req, perl = T)
+    #course_subjects_vec[i] <- gsub(pattern_subject, "\\2", this_educ_req, perl = T)
     
-    this_pattern <- regexpr("(?<=particular phrase).*, or \\w+", this_txt, perl=TRUE)
-    this_ext <- regmatches(this_txt, this_pattern)
-    print(x)
+    pattern_courseLength <- "^.*\\b(Associate Degree|semester|quarter)\\W+.*$"
+    gsub(pattern_courseLength, "\\1", this_educ_req, ignore.case = T)
+    #course_length_vec[i] <- gsub(pattern_courseLength, "\\1", this_educ_req, ignore.case = T)
+    # this_pattern <- regexpr("(?<=particular phrase).*, or \\w+", this_txt, perl=TRUE)
+    # this_ext <- regmatches(this_txt, this_pattern)
+    # print(x)
+    
+    # this_txt <- "Blah blah blah particular phrase this guy, this other guy, that guy, that other guy, or something else blah blah blah, blah blah. Blah blah blah, blah; and so blah."
+    # this_pattern <- "^.*\\b(particular phrase)\\W+(.*)\\W+(,|or).*$"
+    # gsub(this_pattern, "\\2", this_txt, ignore.case = T)
+    #===================================================
     
   }
-  
-  # this_txt <- "Blah blah blah particular phrase this guy, this other guy, that guy, that other guy, or something else blah blah blah, blah blah. Blah blah blah, blah; and so blah."
-  # this_pattern <- "^.*\\b(particular phrase)\\W+(.*)\\W+(,|or).*$"
-  # gsub(this_pattern, "\\2", this_txt, ignore.case = T)
-  
-  #===================================================
-  list_df_exp[[i]] <- out_df_exp
-  
 }
-
 #length(which(qq == 1))
 
-df_exp <- do.call(rbind, list_df)
+df_exp <- do.call(rbind, list_df_exp)
 
 for(i in 1:ncol(df_exp)){
   print(class(df_exp[, i]))
@@ -643,6 +649,72 @@ length(grep("part", df_exp$FULL_TIME_PART_TIME, ignore.case = T))
 
 
 
+# Field_Name
+# Annotation_Letter
+# Description
+# Data_Type
+# Allowable_Values
+# Accepts_Null_Values
+# Additional_Notes
+
+field_name_vec <- c("mean_entry_salaries_all",
+                    "min_entry_salaries_all",
+                    "max_entry_salaries_all",
+                    "cv_entry_salaries_all",
+                    "entry_salaries_scale",
+                    "mean_entry_salaries_scale",
+                    "cv_entry_salaries_scale",
+                    "entry_salaries_flat",
+                    "mean_entry_salaries_flat",
+                    "cv_entry_salaries_flat",
+                    "salary_caps",
+                    "mean_salary_caps",
+                    "cv_salary_caps",
+                    "growth_potential_all",
+                    "mean_growth_potential",
+                    "cv_growth_potential",
+                    "min_growth_potential",
+                    "max_growth_potential")
+
+
+xx <- c("mu", "min", "max", "cv",
+        "S", "Smu", "Scv",
+        "F", "Fmu", "Fcv",
+        "SC", "SCmu", "SCcv",
+        "G", "Gmu", "Gcv", "Gmin", "Gmax")
+xx_S1 <- paste0("S1", xx)
+xx_S2 <- paste0("S2", xx)
+annotation_letter_vec <- c(xx_S1, xx_S2)
+description_vec <- c("Mean of all entry level salaries (salary scales and flat-rated) for the position",
+                     "Minimum of all entry level salaries (salary scales and flat) for the position",
+                     "Maximum of all entry level salaries (salary scales and flat) for the position",
+                     "Coefficient of variation of all entry level salaries (salary scales and flat) for the position",
+                     "Mean of all entry level salaries (salary scales and flat) for the position",
+                     "Entry salaries, salary scales only",
+                     "Mean of salary scale entry level salaries for the position",
+                     "Coefficient of variation of salary scale entry level salaries for the position",
+                     "Entry salaries, flat-rated only",
+                     "Mean of flat-rated salaries for the position",
+                     "Coefficient of variation of flat-rated salaries for the position",
+                     "Upper bounds of salary scales for the position",
+                     "Mean of the upper bounds of the salary scales for the position",
+                     "Coefficient of variation of the upper bounds of the salary scales for the position",
+                     "The differences between the salary range upper bounds and their respective lower bounds",
+                     "The mean of the differences between the salary range upper bounds and their respective lower bounds (mean of G)",
+                     "The coefficient of variation of the differences between the salary range upper bounds and their respective lower bounds (coefficient of variation of G)",
+                     "The minimum of the differences between the salary range upper bounds and their respective lower bounds (minimum of G)",
+                     "The maximum of the differences between the salary range upper bounds and their respective lower bounds (maximum of G)")
+                     
+                     
+description_vec <- c(paste("(GEN)", description_vec), paste("(DWP)", description_vec))
+
+df_add_to_dictionary <- data.frame(Field_Name = field_name_vec,
+                                   Annotation_Letter = annotation_letter_vec,
+                                   Description = description_vec,
+                                   Data_Type = ,
+                                   Allowable_Values = ,
+                                   Accepts_Null_Values = ,
+                                   Additional_Notes = NULL)
 
 
 
