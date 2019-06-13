@@ -3,8 +3,8 @@
 options(warn = -1); options(scipen = 999)
 #======================================================
 #dir <- '../input/cityofla//CityofLA//'
-dir <- "CityofLA/"
-#dir <- "D:/OneDrive - CGIAR/Documents/kaggle/CityofLA/"
+#dir <- "CityofLA/"
+dir <- "D:/OneDrive - CGIAR/Documents/kaggle/CityofLA/"
 bulletin_folder <- "Job Bulletins/"
 #======================================================
 # Required libraries, load yourselves!
@@ -645,76 +645,20 @@ for(i in 1:ncol(df_exp)){
   }
 }
 
-length(grep("part", df_exp$FULL_TIME_PART_TIME, ignore.case = T))
+#length(grep("part", df_exp$FULL_TIME_PART_TIME, ignore.case = T))
 
 
 
-# Field_Name
-# Annotation_Letter
-# Description
-# Data_Type
-# Allowable_Values
-# Accepts_Null_Values
-# Additional_Notes
-
-field_name_vec <- c("mean_entry_salaries_all",
-                    "min_entry_salaries_all",
-                    "max_entry_salaries_all",
-                    "cv_entry_salaries_all",
-                    "entry_salaries_scale",
-                    "mean_entry_salaries_scale",
-                    "cv_entry_salaries_scale",
-                    "entry_salaries_flat",
-                    "mean_entry_salaries_flat",
-                    "cv_entry_salaries_flat",
-                    "salary_caps",
-                    "mean_salary_caps",
-                    "cv_salary_caps",
-                    "growth_potential_all",
-                    "mean_growth_potential",
-                    "cv_growth_potential",
-                    "min_growth_potential",
-                    "max_growth_potential")
 
 
-xx <- c("mu", "min", "max", "cv",
-        "S", "Smu", "Scv",
-        "F", "Fmu", "Fcv",
-        "SC", "SCmu", "SCcv",
-        "G", "Gmu", "Gcv", "Gmin", "Gmax")
-xx_S1 <- paste0("S1", xx)
-xx_S2 <- paste0("S2", xx)
-annotation_letter_vec <- c(xx_S1, xx_S2)
-description_vec <- c("Mean of all entry level salaries (salary scales and flat-rated) for the position",
-                     "Minimum of all entry level salaries (salary scales and flat) for the position",
-                     "Maximum of all entry level salaries (salary scales and flat) for the position",
-                     "Coefficient of variation of all entry level salaries (salary scales and flat) for the position",
-                     "Mean of all entry level salaries (salary scales and flat) for the position",
-                     "Entry salaries, salary scales only",
-                     "Mean of salary scale entry level salaries for the position",
-                     "Coefficient of variation of salary scale entry level salaries for the position",
-                     "Entry salaries, flat-rated only",
-                     "Mean of flat-rated salaries for the position",
-                     "Coefficient of variation of flat-rated salaries for the position",
-                     "Upper bounds of salary scales for the position",
-                     "Mean of the upper bounds of the salary scales for the position",
-                     "Coefficient of variation of the upper bounds of the salary scales for the position",
-                     "The differences between the salary range upper bounds and their respective lower bounds",
-                     "The mean of the differences between the salary range upper bounds and their respective lower bounds (mean of G)",
-                     "The coefficient of variation of the differences between the salary range upper bounds and their respective lower bounds (coefficient of variation of G)",
-                     "The minimum of the differences between the salary range upper bounds and their respective lower bounds (minimum of G)",
-                     "The maximum of the differences between the salary range upper bounds and their respective lower bounds (maximum of G)")
-                     
-                     
-description_vec <- c(paste("(GEN)", description_vec), paste("(DWP)", description_vec))
 
-df_add_to_dictionary <- data.frame(Field_Name = field_name_vec,
-                                   Annotation_Letter = annotation_letter_vec,
-                                   Description = description_vec,
-                                   Data_Type = ,
-                                   Allowable_Values = ,
-                                   Accepts_Null_Values = ,
-                                   Additional_Notes = NULL)
+
+
+
+
+
+
+
 
 
 
@@ -943,6 +887,111 @@ for(i in 1:nrow(df)){
   nsent_vec[i] <- length(unlist(sents))
 }
 df$num_sent <- nsent_vec
+
+
+
+#============================================
+# Routine to consolidate the 115 free COCA corpus sample
+# files into just one files
+# 
+COCA_singleFile_path <- paste0(dir,"COCAsample_single_file.txt")
+xx <- Corpus(DirSource(paste0(dir,"COCA/")))
+write.table(xx$content, COCA_singleFile_path, sep = "\t")
+#xx <- tidy(xx$content)
+# "spok"
+# "acad"
+# "news"
+# "mag"
+# "fic"
+#============================================
+
+
+
+
+# Add to data dictionary
+# Field_Name
+# Annotation_Letter
+# Description
+# Data_Type
+# Allowable_Values
+# Accepts_Null_Values
+# Additional_Notes
+
+field_name_vec <- c("mean_entry_salaries_all",
+                    "min_entry_salaries_all",
+                    "max_entry_salaries_all",
+                    "cv_entry_salaries_all",
+                    "entry_salaries_scale",
+                    "mean_entry_salaries_scale",
+                    "cv_entry_salaries_scale",
+                    "entry_salaries_flat",
+                    "mean_entry_salaries_flat",
+                    "cv_entry_salaries_flat",
+                    "salary_caps",
+                    "mean_salary_caps",
+                    "cv_salary_caps",
+                    "growth_potential_all",
+                    "mean_growth_potential",
+                    "cv_growth_potential",
+                    "min_growth_potential",
+                    "max_growth_potential")
+
+
+xx <- c("mu", "min", "max", "cv",
+        "S", "Smu", "Scv",
+        "F", "Fmu", "Fcv",
+        "SC", "SCmu", "SCcv",
+        "G", "Gmu", "Gcv", "Gmin", "Gmax")
+xx_S1 <- paste0("S1", xx)
+xx_S2 <- paste0("S2", xx)
+annotation_letter_vec <- c(xx_S1, xx_S2)
+description_vec <- c("Mean of all entry level salaries (salary scales and flat-rated) for the position",
+                     "Minimum of all entry level salaries (salary scales and flat) for the position",
+                     "Maximum of all entry level salaries (salary scales and flat) for the position",
+                     "Coefficient of variation of all entry level salaries (salary scales and flat) for the position",
+                     "Mean of all entry level salaries (salary scales and flat) for the position",
+                     "Entry salaries, salary scales only",
+                     "Mean of salary scale entry level salaries for the position",
+                     "Coefficient of variation of salary scale entry level salaries for the position",
+                     "Entry salaries, flat-rated only",
+                     "Mean of flat-rated salaries for the position",
+                     "Coefficient of variation of flat-rated salaries for the position",
+                     "Upper bounds of salary scales for the position",
+                     "Mean of the upper bounds of the salary scales for the position",
+                     "Coefficient of variation of the upper bounds of the salary scales for the position",
+                     "The differences between the salary range upper bounds and their respective lower bounds",
+                     "The mean of the differences between the salary range upper bounds and their respective lower bounds (mean of G)",
+                     "The coefficient of variation of the differences between the salary range upper bounds and their respective lower bounds (coefficient of variation of G)",
+                     "The minimum of the differences between the salary range upper bounds and their respective lower bounds (minimum of G)",
+                     "The maximum of the differences between the salary range upper bounds and their respective lower bounds (maximum of G)")
+
+
+description_vec <- c(paste("(GEN)", description_vec), paste("(DWP)", description_vec))
+
+df_add_to_dictionary <- data.frame(Field_Name = field_name_vec,
+                                   Annotation_Letter = annotation_letter_vec,
+                                   Description = description_vec,
+                                   Data_Type = ,
+                                   Allowable_Values = ,
+                                   Accepts_Null_Values = ,
+                                   Additional_Notes = NULL)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
