@@ -429,6 +429,7 @@ parse_bulletin <- function(file_name, file_path){
   # if(nchar(open_date) > 8){open_date <- substr(open_date, 5, 12)} #"MARINE ENVIRONMENTAL SUPERVISOR" "SENIOR COMPUTER OPERATOR 1428 102017.txt" "SUPERVISING CRIMINALIST 2235 030416.txt" 
   open_date <- get_openDate(bulletin_lines)
   #---------------------------------------------
+  # Get main text sections and their word, sentence counts, and words per sentence
   # Requirements
   str_Requirements <- get_sectionTxt(section_name = "REQUIREMENT",
                                     bulletin_lines,
@@ -436,7 +437,7 @@ parse_bulletin <- function(file_name, file_path){
   num_words_Requirements <- str_count(str_Requirements, "\\w+")
   num_sents_Requirements <- length(unlist(tokenize_sentences(str_Requirements)))
   words_per_sent_Requirements <- num_words_Requirements / num_sents_Requirements
-  #---------------------------------------------
+  #---------
   # Duties
   str_Duties <- get_sectionTxt(section_name = "DUTIES",
                                bulletin_lines,
@@ -444,7 +445,7 @@ parse_bulletin <- function(file_name, file_path){
   num_words_Duties <- str_count(str_Duties, "\\w+")
   num_sents_Duties <- length(unlist(tokenize_sentences(str_Duties)))
   words_per_sent_Duties <- num_words_Duties / num_sents_Duties
-  #---------------------------------------------
+  #---------
   # Process Notes
   str_procNotes <- get_sectionTxt(section_name = "PROCESS NOTES",
                                   bulletin_lines,
@@ -452,7 +453,7 @@ parse_bulletin <- function(file_name, file_path){
   num_words_ProcNotes <- str_count(str_Duties, "\\w+")
   num_sents_ProcNotes <- length(unlist(tokenize_sentences(str_procNotes)))
   words_per_sent_ProcNotes <- num_words_ProcNotes / num_sents_ProcNotes
-  #---------------------------------------------
+  #---------
   # Selection Process
   str_selectProc <- get_sectionTxt(section_name = "SELECTION PROCESS",
                                    bulletin_lines,
@@ -460,7 +461,7 @@ parse_bulletin <- function(file_name, file_path){
   num_words_SelectProc <- str_count(str_selectProc, "\\w+")
   num_sents_SelectProc <- length(unlist(tokenize_sentences(str_selectProc)))
   words_per_sent_SelectProc <- num_words_SelectProc / num_sents_SelectProc
-  #---------------------------------------------
+  #---------
   # Selective Certification
   str_selectCert <- get_sectionTxt(section_name = "SELECTIVE CERTIFICATION",
                                    bulletin_lines,
@@ -468,7 +469,8 @@ parse_bulletin <- function(file_name, file_path){
   num_words_SelectCert <- str_count(str_selectCert, "\\w+")
   num_sents_SelectCert <- length(unlist(tokenize_sentences(str_selectCert)))
   words_per_sent_SelectCert <- num_words_SelectCert / num_sents_SelectCert
-  #---------------------------------------------
+  #---------
+  # Get word, sentence count, words per sentence, for all retained text
   num_words_total <- num_words_Requirements + num_words_Duties + 
     num_words_ProcNotes + num_words_SelectProc + num_words_SelectCert
   num_sents_total <- num_sents_Requirements + num_sents_Duties +
@@ -779,9 +781,6 @@ print(paste("Number of bulletins after cleaning: ", length(file_names)))
 # we have created many new salary variables (mean, max, min, and coefficient
 # of variation for GEN and DWP salary ranges and flat rates). We modify the 
 # data dictionary accordingly.
-#
-# (The results of our look at semantic diversity vs. salary levels is presented
-# farther below.)
 # 
 # The bulletins contain a lot of boiler plate text that doesn't vary much from
 # one bulletin to another. To reduce noise as much as possible in our diversity
@@ -792,8 +791,8 @@ print(paste("Number of bulletins after cleaning: ", length(file_names)))
 # are thus retained for each bulletin in the output file.
 #
 # We also add the word and sentence counts for each of these sections to the file,
-# as well as the word count devided by the sentence count. (This turns out to be
-# statistically significant in our analysis farther below.)
+# as well as the word count devided by the sentence count. We also calculate the total
+# for all sections.
 #
 #file_name <- file_names[44]
 #======================================================
@@ -818,20 +817,20 @@ write.csv(df_outputFile, output_path)
 ##a) Look for structure
 ##b) Comparing against the COCA
 
-# Get the text 
+# Paste the main text sections into single string
 df$Str <- paste(df$Duties, df$Requirements)
 df$Str <- paste(df$Str, df$Process_Notes)
 df$Str <- paste(df$Str, df$Selection_Process)
 df$Str <- paste(df$Str, df$Selection_Certification)
 #df$Str[145]
-df$num_words <- str_count(df$Str, "\\w+")
-nsent_vec <- c()
-for(i in 1:nrow(df)){
-  sents <- tokenize_sentences(df$Str[i])
-  nsent_vec[i] <- length(unlist(sents))
-}
-df$num_sents <- nsent_vec
-df$words_per_sent <- df$num_words / df$num_sents
+# df$num_words <- str_count(df$Str, "\\w+")
+# nsent_vec <- c()
+# for(i in 1:nrow(df)){
+#   sents <- tokenize_sentences(df$Str[i])
+#   nsent_vec[i] <- length(unlist(sents))
+# }
+# df$num_sents <- nsent_vec
+# df$words_per_sent <- df$num_words / df$num_sents
 
 
 #============================================
@@ -878,9 +877,7 @@ field_name_vec <- c("mean_entry_salaries_all",
                     "mean_growth_potential",
                     "cv_growth_potential",
                     "min_growth_potential",
-                    "max_growth_potential",
-                    "num_words",
-                    "num_sents")
+                    "max_growth_potential")
 
 
 xx <- c("mu", "min", "max", "cv",
@@ -913,6 +910,27 @@ description_vec <- c("Mean of all entry level salaries (salary scales and flat-r
 
 
 description_vec <- c(paste("(GEN)", description_vec), paste("(DWP)", description_vec))
+
+
+
+c("num_words_total",
+  "num_sents_total",
+  "words_per_sent_total",
+  "Requirements_Text",
+"num_words_requirements",
+"num_sents_requirements",
+"words_per_sent_requirements",
+"Duties_Text",
+"num_words_duties",
+"num_sents_duties",
+"words_per_sent_duties",
+"Process_Notes_Text",
+"num_words_ProcNotes",
+"num_sents_ProcNotes",
+"words_per_sent_ProcNotes",
+"Selection_Process_Text",
+"Selection_Certification_Text")
+
 
 df_add_to_dictionary <- data.frame(Field_Name = field_name_vec,
                                    Annotation_Letter = annotation_letter_vec,
