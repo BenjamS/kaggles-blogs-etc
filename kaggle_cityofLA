@@ -185,13 +185,84 @@ get_expLength <- function(experience_requirement, pattern_num_before_exp){
   return(exp_length)
 }
 
+#================================================
+# Required Job Experience Module:
+
+get_reqJobExpInfo <- function(str_Requirements,
+                              pattern_num_before_exp = "^.*(one|two|three|four|five|six|seven|eight|nine|ten)\\W(?:\\w+\\W+){1,6}?(full-time|full time|part-time|part time|experience)\\b.*$",
+                              pattern_spec_exp = "^.*?\\b[a-z]\\.(.*)$",
+                              pattern_moYr_before_exp = "^.*\\b(months|years)\\W+(?:\\w+\\W+){1,6}?(full-time|full time|part-time|part time|experience)\\b.*$",
+                              pattern_fullPartTime_before_exp = "^.*\\b(full-time|full time|part-time|part time)\\W+(?:\\w+\\W+){1,6}?experience\\b.*$",
+                              pattern_jobTitle = "^.*\\b(as a|as an|at the level of|experience in)\\W+(\\w+\\W+\\w+\\W+\\w+\\W+\\w+).*$",
+                              pattern_jobTitle_trimPunct = "(^.*)[,;\\.].*$",
+                              oneToTen = "(one|two|three|four|five|six|seven|eight|nine|ten)",
+                              stopWords){
+  
+  #-------------------
+  #n_reqs <- str_count(str_Requirements, "\\b[0-9]\\.") + 1
+  #-------------------
+  # Split the requirements section into its numbered sections.
+  req_vec <- unlist(strsplit(str_Requirements, "[0-9]\\."))
+  ind_rm <- which(req_vec == "")
+  if(length(ind_rm) != 0){req_vec <- req_vec[-ind_rm]}
+  #===================================================
+  # EXTRACT REQUIRED JOB EXPERIENCE INFO
+  # (EXP_LENGTH, FULL_TIME_PART_TIME, EXP_JOB_CLASS_TITLE,
+  # JOB_CLASS_FUNCTION)
+  # Retain only the requirements having to do with job experience
+  ind_jobExp <- grep("experience", req_vec)
+  req_jobExp_vec <- req_vec[ind_jobExp]
+  # Go through each job experience requirement and pull out req'd exp info
+  if(length(ind_jobExp) != 0){
+    exp_job_class_title_vec <- c()
+    exp_length_vec <- c()
+    full_time_part_time_vec <- c()
+    jobClassFn_vec <- c()
+    jobClassFn_length_vec <- c()
+    for(j in 1:length(ind_jobExp)){
+      this_jobExp_req <- req_jobExp_vec[j]
+      #--------------------------------------------------
+      # Required experience job title (EXP_JOB_CLASS_TITLE)
+      exp_job_class_title_vec[j] <- get_expJobClassTitle(this_jobExp_req, pattern_jobTitle, pattern_jobTitle_trimPunct, stopWords)
+      #--------------------------------------------------
+      # Get required experience length (EXP_LENGTH)
+      exp_length_vec[j] <- get_expLength(this_jobExp_req, pattern_num_before_exp)
+      #--------------------------------------------------
+      # Get full time or part time (FULL_TIME_PART_TIME)
+      full_time_part_time <- gsub(pattern_fullPartTime_before_exp, "\\1", this_jobExp_req, ignore.case = T)
+      if(nchar(full_time_part_time) > 50){full_time_part_time_vec[j] <- NA}else{full_time_part_time_vec[j] <- full_time_part_time}
+      #--------------------------------------------------
+      # Get specific types of required experience (JOB_CLASS_FUNCTION)
+      n_subreqs <- str_count(this_jobExp_req, "\\b[a-z]\\.") + 1
+      if(n_subreqs > 1){
+        out <- get_jobClassFunction(this_jobExp_req, pattern_spec_exp)
+        jobClassFn_vec[j] <- out[1]
+        jobClassFn_length_vec[j] <- out[2]
+      }else{
+        jobClassFn_vec[j] <- NA
+        jobClassFn_length_vec[j] <- NA
+      }
+      #--------------------------------------------------
+      
+    }
+    
+    df_jobExperience <- data.frame(
+                             EXP_LENGTH = paste(exp_length_vec, collapse = "|"),
+                             FULL_TIME_PART_TIME = paste(full_time_part_time_vec, collapse = "|"),
+                             EXP_JOB_CLASS_TITLE = paste(exp_job_class_title_vec, collapse = "|"),
+                             JOB_CLASS_FUNCTION = paste(jobClassFn_vec, collapse = "|"))
+  }else{
+    df_jobExperience <- data.frame(
+                             EXP_LENGTH = NA,
+                             FULL_TIME_PART_TIME = NA,
+                             EXP_JOB_CLASS_TITLE = NA,
+                             JOB_CLASS_FUNCTION = NA)
+  }
+  return(df_jobExperience)
+}
 
 
-
-
-
-
-
+#================================================
 
 
 # Comprehensive salary info getter
@@ -328,6 +399,191 @@ get_salaries <- function(str_annSalary){
   return(df_salary_info)
 }
 
+
+
+
+#======================================================
+# Bulletin parser -- puts all of the above together
+
+parse_bulletin <- function(file_name, file_path){
+  print(file_name)
+  bulletin_lines <- get_bulletinLines(file_name, file_path, quietly = F)
+  section_headings <- get_sectionHeadings(bulletin_lines)
+  #---------------------------------------------
+  # Job class title
+  # job_class_title <- bulletin_lines[1]
+  # job_class_title <- gsub("[0-9\\(\\)\\.txt]|REV|REVISED|[a-z]", "", file_name)
+  # job_class_title <- str_trim(job_class_title)
+  job_title <- get_jobTitle_fromBulletin(bulletin_lines, gsub_pattern = "\\'|\\s*\\([^\\)]+\\)")
+  #---------------------------------------------
+  # Job class number (taken from inside file)
+  # job_class_no <- bulletin_lines[grep("Class code", bulletin_lines, ignore.case = T)[1]]
+  # job_class_no <- gsub("[^0-9]", "", job_class_no)
+  # if(nchar(job_class_no) > 4){job_class_no <- substr(job_class_no, 1, 4)} #"MARINE ENVIRONMENTAL SUPERVISOR" "SENIOR COMPUTER OPERATOR 1428 102017.bulletin_lines" "SUPERVISING CRIMINALIST 2235 030416.txt" 
+  job_class_num <- get_jobClassNum_fromBulletin(bulletin_lines)
+  #---------------------------------------------
+  # Opening date
+  # ind_openDate <- grep("Open Date", bulletin_lines, ignore.case = T)
+  # xx <- bulletin_lines[ind_openDate[1]]
+  # open_date <- gsub("\\b[^0-9-]", "", xx)
+  # if(nchar(open_date) > 8){open_date <- substr(open_date, 5, 12)} #"MARINE ENVIRONMENTAL SUPERVISOR" "SENIOR COMPUTER OPERATOR 1428 102017.txt" "SUPERVISING CRIMINALIST 2235 030416.txt" 
+  open_date <- get_openDate(bulletin_lines)
+  #---------------------------------------------
+  # Requirements
+  str_Requirements <- get_sectionTxt(section_name = "REQUIREMENT",
+                                    bulletin_lines,
+                                    section_headings)
+  num_words_Requirements <- str_count(str_Requirements, "\\w+")
+  num_sents_Requirements <- length(unlist(tokenize_sentences(str_Requirements)))
+  words_per_sent_Requirements <- num_words_Requirements / num_sents_Requirements
+  #---------------------------------------------
+  # Duties
+  str_Duties <- get_sectionTxt(section_name = "DUTIES",
+                               bulletin_lines,
+                               section_headings)
+  num_words_Duties <- str_count(str_Duties, "\\w+")
+  num_sents_Duties <- length(unlist(tokenize_sentences(str_Duties)))
+  words_per_sent_Duties <- num_words_Duties / num_sents_Duties
+  #---------------------------------------------
+  # Process Notes
+  str_procNotes <- get_sectionTxt(section_name = "PROCESS NOTES",
+                                  bulletin_lines,
+                                  section_headings)
+  num_words_ProcNotes <- str_count(str_Duties, "\\w+")
+  num_sents_ProcNotes <- length(unlist(tokenize_sentences(str_procNotes)))
+  words_per_sent_ProcNotes <- num_words_ProcNotes / num_sents_ProcNotes
+  #---------------------------------------------
+  # Selection Process
+  str_selectProc <- get_sectionTxt(section_name = "SELECTION PROCESS",
+                                   bulletin_lines,
+                                   section_headings)
+  num_words_SelectProc <- str_count(str_selectProc, "\\w+")
+  num_sents_SelectProc <- length(unlist(tokenize_sentences(str_selectProc)))
+  words_per_sent_SelectProc <- num_words_SelectProc / num_sents_SelectProc
+  #---------------------------------------------
+  # Selective Certification
+  str_selectCert <- get_sectionTxt(section_name = "SELECTIVE CERTIFICATION",
+                                   bulletin_lines,
+                                   section_headings)
+  num_words_SelectCert <- str_count(str_selectCert, "\\w+")
+  num_sents_SelectCert <- length(unlist(tokenize_sentences(str_selectCert)))
+  words_per_sent_SelectCert <- num_words_SelectCert / num_sents_SelectCert
+  #---------------------------------------------
+  num_words_total <- num_words_Requirements + num_words_Duties + 
+    num_words_ProcNotes + num_words_SelectProc + num_words_SelectCert
+  num_sents_total <- num_sents_Requirements + num_sents_Duties +
+    num_sents_ProcNotes + num_sents_SelectProc + num_sents_SelectCert
+  words_per_sent_total <- num_words_total / num_sents_total
+  #---------------------------------------------
+  # Get Required Job Experience Info from the Requirements Text
+  df_jobExpInfo <- get_reqJobExpInfo(str_Requirements,
+                                     pattern_num_before_exp = "^.*(one|two|three|four|five|six|seven|eight|nine|ten)\\W(?:\\w+\\W+){1,6}?(full-time|full time|part-time|part time|experience)\\b.*$",
+                                     pattern_spec_exp = "^.*?\\b[a-z]\\.(.*)$",
+                                     pattern_moYr_before_exp = "^.*\\b(months|years)\\W+(?:\\w+\\W+){1,6}?(full-time|full time|part-time|part time|experience)\\b.*$",
+                                     pattern_fullPartTime_before_exp = "^.*\\b(full-time|full time|part-time|part time)\\W+(?:\\w+\\W+){1,6}?experience\\b.*$",
+                                     pattern_jobTitle = "^.*\\b(as a|as an|at the level of|experience in)\\W+(\\w+\\W+\\w+\\W+\\w+\\W+\\w+).*$",
+                                     pattern_jobTitle_trimPunct = "(^.*)[,;\\.].*$",
+                                     oneToTen = "(one|two|three|four|five|six|seven|eight|nine|ten)",
+                                     stopWords)
+  #---------------------------------------------
+  
+  # EDUCATION YEARS
+  # grep("college|university", str_Requirements)
+  # grep("degree in", str_Requirements)
+  #--
+  # SCHOOL TYPE
+  #--
+  # EDUCATION MAJOR
+  #--
+  # COURSE_COUNT
+  #--
+  # COURSE_LENGTH
+  #--
+  # COURSE_SUBJECT
+  #--
+  # MISC_COURSE_DETAILS
+  #--
+  # DRIVERS_LICENSE_REQ
+  #--
+  # DRIV_LIC_TYPE
+  #--
+  # ADDTL_LIC
+  #--
+  # EXAM_TYPE
+  INT_DEPT_PROM <- ifelse(sum(str_detect(section_headings, "INTERDEPARTMENTAL PROMOTIONAL|INTERDEPARMENTAL PROMOTIONAL")) == 1, 1, 0)
+  DEPT_PROM <- ifelse(sum(str_detect(section_headings, "DEPARTMENTAL PROMOTIONAL|DEPARMENTAL PROMOTIONAL")) == 1, 1, 0)
+  OPEN <- ifelse(sum(str_detect(section_headings, "OPEN COMPETITIVE")) == 1, 1, 0)
+  OPEN_INT_PROM <- ifelse(INT_DEPT_PROM == 1 & OPEN == 1, 1, 0)
+  if(DEPT_PROM == 1){
+    exam_type <- "DEPT_PROM"
+  }else{
+    if(OPEN_INT_PROM == 1){
+      exam_type <- "OPEN_INT_PROM"
+    }else{
+      if(INT_DEPT_PROM == 1){exam_type <- "INT_DEPT_PROM"}
+      if(OPEN == 1){exam_type <- "OPEN"}
+    }
+  }
+  #--
+  # Salary
+  # Get salary text
+  salary_section_identifier <- "ANNUAL SALARY|ANNUALSALARY"
+  ind_annSalary_start <- grep(salary_section_identifier, bulletin_lines) + 1
+  str_annSalary_end <- section_headings[grep(salary_section_identifier, section_headings) + 1]
+  ind_annSalary_end <- grep(str_annSalary_end, bulletin_lines) - 1
+  ind_rm <- which(ind_annSalary_end < ind_annSalary_start)
+  if(length(ind_rm) != 0){ind_annSalary_end <- ind_annSalary_end[-ind_rm]}
+  ind_annSalary_end <- ind_annSalary_end[1]
+  str_annSalary <- bulletin_lines[ind_annSalary_start:ind_annSalary_end]
+  str_annSalary <- paste(str_annSalary, collapse = " ")
+  # Split into GEN and DWP salary text
+  str_annSalary_vec <- unlist(str_split(str_annSalary, "Power"))
+  str_annSalary_GEN <- str_annSalary_vec[1]
+  str_annSalary_DWP <- str_annSalary_vec[2]
+  if(is.na(str_annSalary_GEN)){str_annSalary_GEN <- NULL}
+  if(is.na(str_annSalary_DWP)){str_annSalary_DWP <- NULL}
+  #--
+  # Get GEN salary info
+  df_annSalary_GEN <- get_salaries(str_annSalary_GEN)
+  colnames(df_annSalary_GEN) <- paste0(colnames(df_annSalary_GEN), "_GEN")
+  # Get DWP salary info
+  df_annSalary_DWP <- get_salaries(str_annSalary_DWP)
+  colnames(df_annSalary_DWP) <- paste0(colnames(df_annSalary_DWP), "_DWP")
+  #=============================================
+  df_out <- data.frame(FILE_NAME = file_name,
+                       JOB_CLASS_TITLE = job_title,
+                       JOB_CLASS_NO = job_class_num,
+                       EXAM_TYPE = exam_type,
+                       OPEN_DATE = open_date,
+                       num_words_total = num_words_total,
+                       num_sents_total = num_sents_total,
+                       words_per_sent_total = words_per_sent_total,
+                       Requirements_Text = str_Requirements,
+                       num_words_requirements = num_words_requirements,
+                       num_sents_Requirements = num_sents_Requirements,
+                       words_per_sent_Requirements = words_per_sent_Requirements,
+                       Duties_Text = str_Duties,
+                       num_words_Duties = num_words_Duties,
+                       num_sents_Duties = num_sents_Duties,
+                       words_per_sent_Duties = words_per_sent_Duties,
+                       Process_Notes_Text = str_procNotes,
+                       num_words_ProcNotes = num_words_ProcNotes,
+                       num_sents_ProcNotes = num_sents_ProcNotes,
+                       words_per_sent_ProcNotes = words_per_sent_ProcNotes,
+                       Selection_Process_Text = str_selectProc,
+                       num_words_SelectProc = num_words_SelectProc,
+                       num_sents_SelectProc = num_sents_SelectProc,
+                       words_per_sent_SelectProc = words_per_sent_SelectProc,
+                       Selection_Certification_Text = str_selectCert,
+                       num_words_SelectCert = num_words_SelectCert,
+                       num_sents_SelectCert = num_sents_SelectCert,
+                       words_per_sent_SelectCert = words_per_sent_SelectCert)
+  df_out <- as.data.frame(do.call(cbind, list(df_out, df_jobExpInfo, df_annSalary_GEN, df_annSalary_DWP)))
+  return(df_out)
+}
+#======================================================
+#======================================================
+#======================================================
 #======================================================
 # DATA CLEANING
 # 1) Compare job titles in file names with job titles found inside the file.
@@ -485,396 +741,84 @@ print(file_names[ind_NA])
 special_case <- "Vocational Worker  DEPARTMENT OF PUBLIC WORKS.txt"
 ind_rm <- which(file_names == special_case)
 file_names <- file_names[-ind_rm]
-length(file_names)
-
-# 2) RETRIEVING SPECIFIC INFO FROM TEXT
-n_reqs <- c()
-n_subreqs <- c()
-for(i in 1:length(file_names)){
-  file_name <- file_names[i]
-  print(file_name)
-  bulletin_lines <- get_bulletinLines(file_name, file_path, quietly = T)
-  section_headings <- get_sectionHeadings(bulletin_lines)
-  str_reqMinquals <- get_sectionTxt(section_name = "REQUIREMENT",
-                                    bulletin_lines,
-                                    section_headings)
-  n_reqs[i] <- str_count(str_reqMinquals, "\\b[0-9]\\.") + 1
-  n_subreqs[i] <- str_count(str_reqMinquals, "\\b[a-z]\\.") + 1
-}
-hist(n_reqs)
-length(which(n_reqs > 1))
-hist(n_subreqs)
-length(which(n_subreqs > 1))
-
-file_names[which(n_reqs > 1)]
-#which(file_names == "SUPPLY SERVICES MANAGER 1865 092818.txt")
-
-
-# The host has requested retrieval of the following info from the job bulletins:
-#"AIRPORT INFORMATION SPECIALIST 1783 121115.txt" Req'd job exp length expressed in hours 
-file_names_subset <- file_names[which(n_subreqs > 1)]
-stopWords <- stopwords("en")
-list_df_exp <- list()
-course_subjects_vec <- c()
-course_length_vec <- c()
-cours_count_vec <- c()
-pattern_num_before_exp <- "^.*(one|two|three|four|five|six|seven|eight|nine|ten)\\W(?:\\w+\\W+){1,6}?(full-time|full time|part-time|part time|experience)\\b.*$"
-pattern_spec_exp <- "^.*?\\b[a-z]\\.(.*)$"
-pattern_moYr_before_exp <- "^.*\\b(months|years)\\W+(?:\\w+\\W+){1,6}?(full-time|full time|part-time|part time|experience)\\b.*$"
-pattern_fullPartTime_before_exp <- "^.*\\b(full-time|full time|part-time|part time)\\W+(?:\\w+\\W+){1,6}?experience\\b.*$"
-pattern_jobTitle <- "^.*\\b(as a|as an|at the level of|experience in)\\W+(\\w+\\W+\\w+\\W+\\w+\\W+\\w+).*$"
-pattern_jobTitle_trimPunct <- "(^.*)[,;\\.].*$"
-oneToTen <- "(one|two|three|four|five|six|seven|eight|nine|ten)"
-#for(i in 1:length(file_names)){
-for(i in 1:length(file_names_subset)){
-  #qq[i] <- 0
-  #file_name <- file_names[i]
-  file_name <- file_names_subset[i]
-  print(file_name)
-  bulletin_lines <- get_bulletinLines(file_name, file_path, quietly = T)
-  section_headings <- get_sectionHeadings(bulletin_lines)
-  str_reqMinquals <- get_sectionTxt(section_name = "REQUIREMENT",
-                                    bulletin_lines,
-                                    section_headings)
-  #-------------------
-  n_reqs <- str_count(str_reqMinquals, "\\b[0-9]\\.") + 1
-  #-------------------
-  # Split the requirements section into its numbered sections.
-  req_vec <- unlist(strsplit(str_reqMinquals, "[0-9]\\."))
-  ind_rm <- which(req_vec == "")
-  if(length(ind_rm) != 0){req_vec <- req_vec[-ind_rm]}
-  #===================================================
-  # EXTRACT REQUIRED JOB EXPERIENCE INFO
-  # (EXP_LENGTH, FULL_TIME_PART_TIME, EXP_JOB_CLASS_TITLE,
-  # JOB_CLASS_FUNCTION)
-  # Retain only the requirements having to do with job experience
-  ind_jobExp <- grep("experience", req_vec)
-  req_jobExp_vec <- req_vec[ind_jobExp]
-  # Go through each job experience requirement and pull out req'd exp info
-  if(length(ind_jobExp) != 0){
-    exp_job_class_title_vec <- c()
-    exp_length_vec <- c()
-    full_time_part_time_vec <- c()
-    jobClassFn_vec <- c()
-    jobClassFn_length_vec <- c()
-    for(j in 1:length(ind_jobExp)){
-      this_jobExp_req <- req_jobExp_vec[j]
-      #--------------------------------------------------
-      # Required experience job title (EXP_JOB_CLASS_TITLE)
-      exp_job_class_title_vec[j] <- get_expJobClassTitle(this_jobExp_req, pattern_jobTitle, pattern_jobTitle_trimPunct, stopWords)
-      #--------------------------------------------------
-      # Get required experience length (EXP_LENGTH)
-      exp_length_vec[j] <- get_expLength(this_jobExp_req, pattern_num_before_exp)
-      #--------------------------------------------------
-      # Get full time or part time (FULL_TIME_PART_TIME)
-      full_time_part_time <- gsub(pattern_fullPartTime_before_exp, "\\1", this_jobExp_req, ignore.case = T)
-      if(nchar(full_time_part_time) > 50){full_time_part_time_vec[j] <- NA}else{full_time_part_time_vec[j] <- full_time_part_time}
-      #--------------------------------------------------
-      # Get specific types of required experience (JOB_CLASS_FUNCTION)
-      n_subreqs <- str_count(this_jobExp_req, "\\b[a-z]\\.") + 1
-      if(n_subreqs > 1){
-        out <- get_jobClassFunction(this_jobExp_req, pattern_spec_exp)
-        jobClassFn_vec[j] <- out[1]
-        jobClassFn_length_vec[j] <- out[2]
-      }else{
-        jobClassFn_vec[j] <- NA
-        jobClassFn_length_vec[j] <- NA
-      }
-      #--------------------------------------------------
-      
-    }
-    
-    nrows_out <- length(exp_length_vec)
-    out_df_exp <- data.frame(FILE_NAME = rep(file_name, nrows_out),
-                             EXP_LENGTH = exp_length_vec,
-                             FULL_TIME_PART_TIME = full_time_part_time_vec,
-                             EXP_JOB_CLASS_TITLE = exp_job_class_title_vec,
-                             JOB_CLASS_FUNCTION = jobClassFn_vec,
-                             job_class_function_length = jobClassFn_length_vec)
-  }else{
-    out_df_exp <- data.frame(FILE_NAME = file_name,
-                             EXP_LENGTH = NA,
-                             FULL_TIME_PART_TIME = NA,
-                             EXP_JOB_CLASS_TITLE = NA,
-                             JOB_CLASS_FUNCTION = NA,
-                             job_class_function_length = NA)
-  }
-  
-  
-  list_df_exp[[i]] <- out_df_exp
-  
-  #===================================================
-  # EXTRACT REQUIRED EDUCATION
-  # (COURSE_COUNT, COURSE_LENGTH, COURSE_SUBJECT, 
-  # MISC_COURSE_DETAILS)
-  ind_educ <- grep("graduation|degree|course", req_vec, ignore.case = T)
-  
-  if(length(ind_educ) != 0){
-    req_educ_vec <- req_vec[ind_educ]
-    
-    
-    #this_pattern <- "^.*\\b(particular phrase)\\W+((?:\\w+\\W+){3}\\w+).*$"  
-    this_educ_req <- req_educ_vec[1]
-    #pattern_subject <- "^.*\\b(degree in|,|or)\\W+((?:\\w+\\W+){2}\\w+)\\W+(,|or|).*$"
-    pattern_subject <- "^.*\\b(university in|degree in)\\W+(.*)\\W+(?=or).*$"
-    gsub(pattern_subject, "\\2", this_educ_req, perl = T)
-    #course_subjects_vec[i] <- gsub(pattern_subject, "\\2", this_educ_req, perl = T)
-    
-    pattern_courseLength <- "^.*\\b(Associate Degree|semester|quarter)\\W+.*$"
-    gsub(pattern_courseLength, "\\1", this_educ_req, ignore.case = T)
-    #course_length_vec[i] <- gsub(pattern_courseLength, "\\1", this_educ_req, ignore.case = T)
-    # this_pattern <- regexpr("(?<=particular phrase).*, or \\w+", this_txt, perl=TRUE)
-    # this_ext <- regmatches(this_txt, this_pattern)
-    # print(x)
-    
-    # this_txt <- "Blah blah blah particular phrase this guy, this other guy, that guy, that other guy, or something else blah blah blah, blah blah. Blah blah blah, blah; and so blah."
-    # this_pattern <- "^.*\\b(particular phrase)\\W+(.*)\\W+(,|or).*$"
-    # gsub(this_pattern, "\\2", this_txt, ignore.case = T)
-    #===================================================
-    
-  }
-}
-#length(which(qq == 1))
-
-df_exp <- do.call(rbind, list_df_exp)
-
-for(i in 1:ncol(df_exp)){
-  print(class(df_exp[, i]))
-  if(class(df_exp[, i]) == "factor"){
-    df_exp[, i] <- as.character(df_exp[, i])
-  }
-}
-
-#length(grep("part", df_exp$FULL_TIME_PART_TIME, ignore.case = T))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+print(paste("Number of bulletins after cleaning: ", length(file_names)))
+#======================================================
+# 2) RETRIEVING SPECIFIC INFO FROM BULLETINS
+# Our strategy for retrieving info from the bulletins is to break the bulletin up
+# into sections according to its ALL CAPS headings. These headings vary somewhat
+# across bulletins in spelling, spacing, order of appearance, and such; but there
+# is enough consistency to build a script off of.
+#
+# The example output file kindly provided by the host indicates that each row
+# should be assigned to each job (sub-)requirement. After long deliberation,
+# we have decided to go with a simpler one-row-per-bulletin output format.
+#
+# This is because we find the job requirements information in the bulletins
+# to be presented in a way that is often inconsistent with the format proposed
+# by the host.
+#
+# In particular, the host's format presumes "and/or" logic gates
+# at the end of each requirement. This is true for some bulletins, but many,
+# if not most, bulletins also have and/or logic gates occurring within
+# each (sub-)requirement, effectively creating an additional level
+# of nesting not addressed by the host's output format.
+# 
+# The one-row-per-bulletin format is a stopgap measure pending clarification
+# or homogenization of these bulletin formatting issues. It also facilitates
+# subsequent manipulation of the data for the diversity analysis.
+# 
+# Under EXP_JOB_CLASS_TITLE, multiple job experience requirements are
+# separated by "|". The corresponding info under EXP_LENGTH, FULL_TIME_PART_TIME,
+# EXP_JOB_CLASS_TITLE, and JOB_CLASS_FUNCTION, is likewise separated by "|".
+#
+
+# CHANGES TO THE DATA DICTIONARY
+#
+# We thought it would be interesting to compare salary levels to some measure of
+# semantic gender/race diversity in the bulletin text. In order to do this,
+# we have created many new salary variables (mean, max, min, and coefficient
+# of variation for GEN and DWP salary ranges and flat rates). We modify the 
+# data dictionary accordingly.
+#
+# (The results of our look at semantic diversity vs. salary levels is presented
+# farther below.)
+# 
+# The bulletins contain a lot of boiler plate text that doesn't vary much from
+# one bulletin to another. To reduce noise as much as possible in our diversity
+# analysis farther below, we conduct our analysis only over the text that
+# is unique to each bulletin. The unique text seems to be contained in
+# the REQUIREMENTS, DUTIES, PROCESS NOTES, and, occassionally, SELECTION
+# PROCESS and SELECTIVE CRITERIA sections of the bulletins. These sections
+# are thus retained for each bulletin in the output file.
+#
+# We also add the word and sentence counts for each of these sections to the file,
+# as well as the word count devided by the sentence count. (This turns out to be
+# statistically significant in our analysis farther below.)
+#
 #file_name <- file_names[44]
-
-
-
-
-parse_bulletin <- function(file_name, file_path){
-  print(file_name)
-  bulletin_lines <- get_bulletinLines(file_name, file_path, quietly = F)
-  section_headings <- get_sectionHeadings(bulletin_lines)
-  #---------------------------------------------
-  # Job class title
-  # job_class_title <- bulletin_lines[1]
-  # job_class_title <- gsub("[0-9\\(\\)\\.txt]|REV|REVISED|[a-z]", "", file_name)
-  # job_class_title <- str_trim(job_class_title)
-  job_title <- get_jobTitle_fromBulletin(bulletin_lines, gsub_pattern = "\\'|\\s*\\([^\\)]+\\)")
-  #---------------------------------------------
-  # Job class number (taken from inside file)
-  # job_class_no <- bulletin_lines[grep("Class code", bulletin_lines, ignore.case = T)[1]]
-  # job_class_no <- gsub("[^0-9]", "", job_class_no)
-  # if(nchar(job_class_no) > 4){job_class_no <- substr(job_class_no, 1, 4)} #"MARINE ENVIRONMENTAL SUPERVISOR" "SENIOR COMPUTER OPERATOR 1428 102017.bulletin_lines" "SUPERVISING CRIMINALIST 2235 030416.txt" 
-  job_class_num <- get_jobClassNum_fromBulletin(bulletin_lines)
-  #---------------------------------------------
-  # Opening date
-  # ind_openDate <- grep("Open Date", bulletin_lines, ignore.case = T)
-  # xx <- bulletin_lines[ind_openDate[1]]
-  # open_date <- gsub("\\b[^0-9-]", "", xx)
-  # if(nchar(open_date) > 8){open_date <- substr(open_date, 5, 12)} #"MARINE ENVIRONMENTAL SUPERVISOR" "SENIOR COMPUTER OPERATOR 1428 102017.txt" "SUPERVISING CRIMINALIST 2235 030416.txt" 
-  open_date <- get_openDate(bulletin_lines)
-  #---------------------------------------------
-  # Requirements
-  str_reqMinquals <- get_sectionTxt(section_name = "REQUIREMENT",
-                                    bulletin_lines,
-                                    section_headings)
-  #---------------------------------------------
-  # Duties
-  str_Duties <- get_sectionTxt(section_name = "DUTIES",
-                               bulletin_lines,
-                               section_headings)
-  #---------------------------------------------
-  # Process Notes
-  str_procNotes <- get_sectionTxt(section_name = "PROCESS NOTES",
-                                  bulletin_lines,
-                                  section_headings)
-  #---------------------------------------------
-  # Selection Process
-  str_selectProc <- get_sectionTxt(section_name = "SELECTION PROCESS",
-                                   bulletin_lines,
-                                   section_headings)
-  #---------------------------------------------
-  # Selective Certification
-  str_selectCert <- get_sectionTxt(section_name = "SELECTIVE CERTIFICATION",
-                                   bulletin_lines,
-                                   section_headings)
-  
-  #--
-  # REQUIREMENT SET ID
-  #--
-  # REQUIREMENT SUBSET ID
-  #--
-  # EDUCATION YEARS
-  # grep("college|university", str_reqMinquals)
-  # grep("degree in", str_reqMinquals)
-  #--
-  # SCHOOL TYPE
-  #--
-  # EDUCATION MAJOR
-  #--
-  # EXPERIENCE LENGTH
-  #--
-  # FULL TIME PART TIME
-  #--
-  # EXP JOB CLASS TITLE
-  #--
-  # EXP_JOB_CLASS_ALT_RESP
-  #--
-  # EXP_JOB_CLASS_FUNCTION
-  #--
-  # COURSE_COUNT
-  #--
-  # COURSE_LENGTH
-  #--
-  # COURSE_SUBJECT
-  #--
-  # MISC_COURSE_DETAILS
-  #--
-  # DRIVERS_LICENSE_REQ
-  #--
-  # DRIV_LIC_TYPE
-  #--
-  # ADDTL_LIC
-  #--
-  # EXAM_TYPE
-  INT_DEPT_PROM <- ifelse(sum(str_detect(section_headings, "INTERDEPARTMENTAL PROMOTIONAL|INTERDEPARMENTAL PROMOTIONAL")) == 1, 1, 0)
-  DEPT_PROM <- ifelse(sum(str_detect(section_headings, "DEPARTMENTAL PROMOTIONAL|DEPARMENTAL PROMOTIONAL")) == 1, 1, 0)
-  OPEN <- ifelse(sum(str_detect(section_headings, "OPEN COMPETITIVE")) == 1, 1, 0)
-  OPEN_INT_PROM <- ifelse(INT_DEPT_PROM == 1 & OPEN == 1, 1, 0)
-  if(DEPT_PROM == 1){
-    exam_type <- "DEPT_PROM"
-  }else{
-    if(OPEN_INT_PROM == 1){
-      exam_type <- "OPEN_INT_PROM"
-    }else{
-      if(INT_DEPT_PROM == 1){exam_type <- "INT_DEPT_PROM"}
-      if(OPEN == 1){exam_type <- "OPEN"}
-    }
-  }
-  #--
-  # Salary
-  # Get salary text
-  salary_section_identifier <- "ANNUAL SALARY|ANNUALSALARY"
-  ind_annSalary_start <- grep(salary_section_identifier, bulletin_lines) + 1
-  str_annSalary_end <- section_headings[grep(salary_section_identifier, section_headings) + 1]
-  ind_annSalary_end <- grep(str_annSalary_end, bulletin_lines) - 1
-  ind_rm <- which(ind_annSalary_end < ind_annSalary_start)
-  if(length(ind_rm) != 0){ind_annSalary_end <- ind_annSalary_end[-ind_rm]}
-  ind_annSalary_end <- ind_annSalary_end[1]
-  str_annSalary <- bulletin_lines[ind_annSalary_start:ind_annSalary_end]
-  str_annSalary <- paste(str_annSalary, collapse = " ")
-  # Split into GEN and DWP salary text
-  str_annSalary_vec <- unlist(str_split(str_annSalary, "Power"))
-  str_annSalary_GEN <- str_annSalary_vec[1]
-  str_annSalary_DWP <- str_annSalary_vec[2]
-  if(is.na(str_annSalary_GEN)){str_annSalary_GEN <- NULL}
-  if(is.na(str_annSalary_DWP)){str_annSalary_DWP <- NULL}
-  #--
-  # Get GEN salary info
-  df_annSalary_GEN <- get_salaries(str_annSalary_GEN)
-  colnames(df_annSalary_GEN) <- paste0(colnames(df_annSalary_GEN), "_GEN")
-  # Get DWP salary info
-  df_annSalary_DWP <- get_salaries(str_annSalary_DWP)
-  colnames(df_annSalary_DWP) <- paste0(colnames(df_annSalary_DWP), "_DWP")
-  #=============================================
-  df_out <- data.frame(FILE_NAME = file_name,
-                       JOB_CLASS_TITLE = job_title,
-                       JOB_CLASS_NO = job_class_num,
-                       Requirements = str_reqMinquals,
-                       Duties = str_Duties,
-                       Process_Notes = str_procNotes,
-                       Selection_Process = str_selectProc,
-                       Selection_Certification = str_selectCert,
-                       EXAM_TYPE = exam_type,
-                       OPEN_DATE = open_date)
-  df_out <- as.data.frame(do.call(cbind, list(df_out, df_annSalary_GEN, df_annSalary_DWP)))
-  return(df_out)
-}
-#===============================================
-list_df <- map(file_names, parse_bulletin, file_path)
-
-# list_df <- list()
-# for(i in 1:length(file_names)){
-#   file_name <- file_names[i]
-#   list_df[[i]] <- parse_bulletin(file_name, file_path)
-# }
-
-df <- do.call(rbind, list_df)
-
-
-
-
-
-
-for(i in 1:ncol(df)){
-  print(class(df[, i]))
-  if(class(df[, i]) == "factor"){
-    df[, i] <- as.character(df[, i])
+#======================================================
+list_df_outputFile <- map(file_names, parse_bulletin, file_path)
+df_outputFile <- do.call(rbind, list_df_outputFile)
+# Change factor to character
+for(i in 1:ncol(df_outputFile)){
+  print(class(df_outputFile[, i]))
+  if(class(df_outputFile[, i]) == "factor"){
+    df_outputFile[, i] <- as.character(df_outputFile[, i])
   }
 }
+#-----------------------------------------------
+# Output file
+output_file_name <- "Job Classes Output.csv"
+output_path <- paste0(dir, output_file_name)
+write.csv(df_outputFile, output_path)
+#======================================================
 
-class(df$Requirements)
+###3) Using the output file to map promotion pathways
+###4) Using the output file to detect semantic bias in bulletin language
+##a) Look for structure
+##b) Comparing against the COCA
+
+# Get the text 
 df$Str <- paste(df$Duties, df$Requirements)
 df$Str <- paste(df$Str, df$Process_Notes)
 df$Str <- paste(df$Str, df$Selection_Process)
@@ -886,17 +830,17 @@ for(i in 1:nrow(df)){
   sents <- tokenize_sentences(df$Str[i])
   nsent_vec[i] <- length(unlist(sents))
 }
-df$num_sent <- nsent_vec
-
+df$num_sents <- nsent_vec
+df$words_per_sent <- df$num_words / df$num_sents
 
 
 #============================================
 # Routine to consolidate the 115 free COCA corpus sample
 # files into just one files
 # 
-COCA_singleFile_path <- paste0(dir,"COCAsample_single_file.txt")
-xx <- Corpus(DirSource(paste0(dir,"COCA/")))
-write.table(xx$content, COCA_singleFile_path, sep = "\t")
+# COCA_singleFile_path <- paste0(dir,"COCAsample_single_file.txt")
+# xx <- Corpus(DirSource(paste0(dir,"COCA/")))
+# write.table(xx$content, COCA_singleFile_path, sep = "\t")
 #xx <- tidy(xx$content)
 # "spok"
 # "acad"
@@ -934,7 +878,9 @@ field_name_vec <- c("mean_entry_salaries_all",
                     "mean_growth_potential",
                     "cv_growth_potential",
                     "min_growth_potential",
-                    "max_growth_potential")
+                    "max_growth_potential",
+                    "num_words",
+                    "num_sents")
 
 
 xx <- c("mu", "min", "max", "cv",
@@ -1041,8 +987,8 @@ bulletin_corpus[[1]]$content
 
 bulletin_corpus_file_path <- paste0(dir, "bulletin_corp.txt")
 write.table(bulletin_corpus$content, bulletin_corpus_file_path)
-word2phrase(train_file = bulletin_corpus_file_path, output_file = "bulletin_vec.txt")
-df_bullcorp <- read.table("bulletin_vec.txt")
+# word2phrase(train_file = bulletin_corpus_file_path, output_file = "bulletin_vec.txt")
+# df_bullcorp <- read.table("bulletin_vec.txt")
 bulletin_corpus <- Corpus(VectorSource(df_bullcorp$x))
 dtm <- DocumentTermMatrix(bulletin_corpus)
 dtm <- removeSparseTerms(dtm, 0.9)
@@ -1532,3 +1478,226 @@ for(i in 1:nrow(df)){
   # gender_score[i] <- g_score
   # caucas_score[i] <- cauc_score
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+n_reqs <- c()
+n_subreqs <- c()
+for(i in 1:length(file_names)){
+  file_name <- file_names[i]
+  print(file_name)
+  bulletin_lines <- get_bulletinLines(file_name, file_path, quietly = T)
+  section_headings <- get_sectionHeadings(bulletin_lines)
+  str_Requirements <- get_sectionTxt(section_name = "REQUIREMENT",
+                                    bulletin_lines,
+                                    section_headings)
+  n_reqs[i] <- str_count(str_Requirements, "\\b[0-9]\\.") + 1
+  n_subreqs[i] <- str_count(str_Requirements, "\\b[a-z]\\.") + 1
+}
+hist(n_reqs)
+length(which(n_reqs > 1))
+hist(n_subreqs)
+length(which(n_subreqs > 1))
+
+file_names[which(n_reqs > 1)]
+#which(file_names == "SUPPLY SERVICES MANAGER 1865 092818.txt")
+
+
+# The host has requested retrieval of the following info from the job bulletins:
+#"AIRPORT INFORMATION SPECIALIST 1783 121115.txt" Req'd job exp length expressed in hours 
+file_names_subset <- file_names[which(n_subreqs > 1)]
+
+
+
+
+
+list_df_exp <- list()
+course_subjects_vec <- c()
+course_length_vec <- c()
+cours_count_vec <- c()
+stopWords <- stopwords("en")
+pattern_num_before_exp <- "^.*(one|two|three|four|five|six|seven|eight|nine|ten)\\W(?:\\w+\\W+){1,6}?(full-time|full time|part-time|part time|experience)\\b.*$"
+pattern_spec_exp <- "^.*?\\b[a-z]\\.(.*)$"
+pattern_moYr_before_exp <- "^.*\\b(months|years)\\W+(?:\\w+\\W+){1,6}?(full-time|full time|part-time|part time|experience)\\b.*$"
+pattern_fullPartTime_before_exp <- "^.*\\b(full-time|full time|part-time|part time)\\W+(?:\\w+\\W+){1,6}?experience\\b.*$"
+pattern_jobTitle <- "^.*\\b(as a|as an|at the level of|experience in)\\W+(\\w+\\W+\\w+\\W+\\w+\\W+\\w+).*$"
+pattern_jobTitle_trimPunct <- "(^.*)[,;\\.].*$"
+oneToTen <- "(one|two|three|four|five|six|seven|eight|nine|ten)"
+#for(i in 1:length(file_names)){
+for(i in 1:length(file_names_subset)){
+  #qq[i] <- 0
+  #file_name <- file_names[i]
+  file_name <- file_names_subset[i]
+  print(file_name)
+  bulletin_lines <- get_bulletinLines(file_name, file_path, quietly = T)
+  section_headings <- get_sectionHeadings(bulletin_lines)
+  str_Requirements <- get_sectionTxt(section_name = "REQUIREMENT",
+                                    bulletin_lines,
+                                    section_headings)
+  #-------------------
+  n_reqs <- str_count(str_Requirements, "\\b[0-9]\\.") + 1
+  #-------------------
+  # Split the requirements section into its numbered sections.
+  req_vec <- unlist(strsplit(str_Requirements, "[0-9]\\."))
+  ind_rm <- which(req_vec == "")
+  if(length(ind_rm) != 0){req_vec <- req_vec[-ind_rm]}
+  #===================================================
+  # EXTRACT REQUIRED JOB EXPERIENCE INFO
+  # (EXP_LENGTH, FULL_TIME_PART_TIME, EXP_JOB_CLASS_TITLE,
+  # JOB_CLASS_FUNCTION)
+  # Retain only the requirements having to do with job experience
+  ind_jobExp <- grep("experience", req_vec)
+  req_jobExp_vec <- req_vec[ind_jobExp]
+  # Go through each job experience requirement and pull out req'd exp info
+  if(length(ind_jobExp) != 0){
+    exp_job_class_title_vec <- c()
+    exp_length_vec <- c()
+    full_time_part_time_vec <- c()
+    jobClassFn_vec <- c()
+    jobClassFn_length_vec <- c()
+    for(j in 1:length(ind_jobExp)){
+      this_jobExp_req <- req_jobExp_vec[j]
+      #--------------------------------------------------
+      # Required experience job title (EXP_JOB_CLASS_TITLE)
+      exp_job_class_title_vec[j] <- get_expJobClassTitle(this_jobExp_req, pattern_jobTitle, pattern_jobTitle_trimPunct, stopWords)
+      #--------------------------------------------------
+      # Get required experience length (EXP_LENGTH)
+      exp_length_vec[j] <- get_expLength(this_jobExp_req, pattern_num_before_exp)
+      #--------------------------------------------------
+      # Get full time or part time (FULL_TIME_PART_TIME)
+      full_time_part_time <- gsub(pattern_fullPartTime_before_exp, "\\1", this_jobExp_req, ignore.case = T)
+      if(nchar(full_time_part_time) > 50){full_time_part_time_vec[j] <- NA}else{full_time_part_time_vec[j] <- full_time_part_time}
+      #--------------------------------------------------
+      # Get specific types of required experience (JOB_CLASS_FUNCTION)
+      n_subreqs <- str_count(this_jobExp_req, "\\b[a-z]\\.") + 1
+      if(n_subreqs > 1){
+        out <- get_jobClassFunction(this_jobExp_req, pattern_spec_exp)
+        jobClassFn_vec[j] <- out[1]
+        jobClassFn_length_vec[j] <- out[2]
+      }else{
+        jobClassFn_vec[j] <- NA
+        jobClassFn_length_vec[j] <- NA
+      }
+      #--------------------------------------------------
+      
+    }
+    
+    out_df_exp <- data.frame(FILE_NAME = rep(file_name, nrows_out),
+                             EXP_LENGTH = paste(exp_length_vec, collapse = "|"),
+                             FULL_TIME_PART_TIME = paste(full_time_part_time_vec, collapse = "|"),
+                             EXP_JOB_CLASS_TITLE = paste(exp_job_class_title_vec, collapse = "|"),
+                             JOB_CLASS_FUNCTION = paste(jobClassFn_vec, collapse = "|"))
+  }else{
+    out_df_exp <- data.frame(FILE_NAME = file_name,
+                             EXP_LENGTH = NA,
+                             FULL_TIME_PART_TIME = NA,
+                             EXP_JOB_CLASS_TITLE = NA,
+                             JOB_CLASS_FUNCTION = NA)
+  }
+  
+  
+  list_df_exp[[i]] <- out_df_exp
+  
+  #===================================================
+  # EXTRACT REQUIRED EDUCATION
+  # (COURSE_COUNT, COURSE_LENGTH, COURSE_SUBJECT, 
+  # MISC_COURSE_DETAILS)
+  ind_educ <- grep("graduation|degree|course", req_vec, ignore.case = T)
+  
+  if(length(ind_educ) != 0){
+    req_educ_vec <- req_vec[ind_educ]
+    
+    
+    #this_pattern <- "^.*\\b(particular phrase)\\W+((?:\\w+\\W+){3}\\w+).*$"  
+    this_educ_req <- req_educ_vec[1]
+    #pattern_subject <- "^.*\\b(degree in|,|or)\\W+((?:\\w+\\W+){2}\\w+)\\W+(,|or|).*$"
+    pattern_subject <- "^.*\\b(university in|degree in)\\W+(.*)\\W+(?=or).*$"
+    gsub(pattern_subject, "\\2", this_educ_req, perl = T)
+    #course_subjects_vec[i] <- gsub(pattern_subject, "\\2", this_educ_req, perl = T)
+    
+    pattern_courseLength <- "^.*\\b(Associate Degree|semester|quarter)\\W+.*$"
+    gsub(pattern_courseLength, "\\1", this_educ_req, ignore.case = T)
+    #course_length_vec[i] <- gsub(pattern_courseLength, "\\1", this_educ_req, ignore.case = T)
+    # this_pattern <- regexpr("(?<=particular phrase).*, or \\w+", this_txt, perl=TRUE)
+    # this_ext <- regmatches(this_txt, this_pattern)
+    # print(x)
+    
+    # this_txt <- "Blah blah blah particular phrase this guy, this other guy, that guy, that other guy, or something else blah blah blah, blah blah. Blah blah blah, blah; and so blah."
+    # this_pattern <- "^.*\\b(particular phrase)\\W+(.*)\\W+(,|or).*$"
+    # gsub(this_pattern, "\\2", this_txt, ignore.case = T)
+    #===================================================
+    
+  }
+}
+#length(which(qq == 1))
+
+df_exp <- do.call(rbind, list_df_exp)
+
+for(i in 1:ncol(df_exp)){
+  print(class(df_exp[, i]))
+  if(class(df_exp[, i]) == "factor"){
+    df_exp[, i] <- as.character(df_exp[, i])
+  }
+}
+
+#length(grep("part", df_exp$FULL_TIME_PART_TIME, ignore.case = T))
