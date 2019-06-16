@@ -262,8 +262,6 @@ get_reqJobExpInfo <- function(str_Requirements,
 
 
 #================================================
-
-
 # Comprehensive salary info getter
 #str_annSalary <- str_annSalary_GEN
 get_salaries <- function(str_annSalary){
@@ -273,6 +271,7 @@ get_salaries <- function(str_annSalary){
   #--
   # Get all salary scales and/or flat-rated salaries from salary text
   annSalaries_raw <- removePunctuation(str_annSalary) # Remove all but numbers and "to" #\\(.*\\),;\\$
+  annSalaries_raw <- gsub("\\b55\\b", "", annSalaries_raw) # Remove "5.5% bonus" ("ADVANCE PRACTICE PROVIDER CORRECTIONAL CARE 2325 020808 REV 111214.txt", "HELICOPTER MECHANIC 3742 072206 REV 020818.txt", "PRINCIPAL DETENTION OFFICER 3215 101218.txt")
   salary_scales_vec <- unlist(str_extract_all(annSalaries_raw, "[0-9]+ to [0-9]+")) # Keep only phrases of type "[some number] to [some number]"
   salaries_flat <- str_trim(gsub("[0-9]+ to [0-9]+|[a-zA-z]+", "", annSalaries_raw)) # Keep all except phrases of type "[some number] to [some number]"
   salaries_flat <- unlist(str_split(salaries_flat, " "))
@@ -341,8 +340,6 @@ get_salaries <- function(str_annSalary){
     }
     #----------------------------------------------
   }else{
-    n_salary_scales <- NA
-    n_flat_rated_salaries <- NA
     salary_scales <- NA
     flat_salaries <- NA
     salary_min <- NA
@@ -375,6 +372,14 @@ get_salaries <- function(str_annSalary){
 #file_name <- file_names[1]
 #file_name <- "ADMINISTRATIVE CLERK 1358 033018 (2).txt"
 #file_name <- "AIR CONDITIONING MECHANIC 3774 041417.txt"
+#file_name <- "AIRPORT POLICE SPECIALIST 3236 063017 (2).txt"
+#file_name <- "SENIOR AUTOMOTIVE SUPERVISOR 3716 112015.txt"                    
+#file_name <- "SENIOR BUILDING OPERATING ENGINEER 5925 011615 (1).txt"          
+#file_name <- "SENIOR CARPENTER  3345 081117 REV 082417.txt"                    
+#file_name <- "SENIOR COMMUNICATIONS ELECTRICIAN 3638 030317 (1).txt"  
+#file_name <- "ADVANCE PRACTICE PROVIDER CORRECTIONAL CARE 2325 020808 REV 111214.txt"
+#file_name <- "HELICOPTER MECHANIC 3742 072206 REV 020818.txt"                        
+#file_name <- "PRINCIPAL DETENTION OFFICER 3215 101218.txt"    
 parse_bulletin <- function(file_name, file_path){
   print(file_name)
   bulletin_lines <- get_bulletinLines(file_name, file_path, quietly = T)
@@ -432,19 +437,11 @@ parse_bulletin <- function(file_name, file_path){
   num_sents_SelectProc <- length(unlist(tokenize_sentences(str_selectProc)))
   words_per_sent_SelectProc <- num_words_SelectProc / num_sents_SelectProc
   #---------
-  # Selective Certification
-  str_selectCert <- get_sectionTxt(section_name = "SELECTIVE CERTIFICATION",
-                                   bulletin_lines,
-                                   section_headings)
-  num_words_SelectCert <- str_count(str_selectCert, "\\w+")
-  num_sents_SelectCert <- length(unlist(tokenize_sentences(str_selectCert)))
-  words_per_sent_SelectCert <- num_words_SelectCert / num_sents_SelectCert
-  #---------
   # Get word, sentence count, words per sentence, for all retained text
   num_words_total <- sum(c(num_words_Requirements, num_words_Duties, 
-    num_words_ProcNotes, num_words_SelectProc, num_words_SelectCert), na.rm = T)
+    num_words_ProcNotes, num_words_SelectProc), na.rm = T)
   num_sents_total <- sum(c(num_sents_Requirements, num_sents_Duties,
-    num_sents_ProcNotes, num_sents_SelectProc, num_sents_SelectCert), na.rm = T)
+    num_sents_ProcNotes, num_sents_SelectProc), na.rm = T)
   words_per_sent_total <- num_words_total / num_sents_total
   #---------------------------------------------
   # Get Required Job Experience Info from the Requirements Text
@@ -456,29 +453,6 @@ parse_bulletin <- function(file_name, file_path){
                                      pattern_jobTitle = "^.*\\b(as a|as an|at the level of|experience in)\\W+(\\w+\\W+\\w+\\W+\\w+\\W+\\w+).*$",
                                      pattern_jobTitle_trimPunct = "(^.*)[,;\\.].*$")
   #---------------------------------------------
-  
-  # EDUCATION YEARS
-  # grep("college|university", str_Requirements)
-  # grep("degree in", str_Requirements)
-  #--
-  # SCHOOL TYPE
-  #--
-  # EDUCATION MAJOR
-  #--
-  # COURSE_COUNT
-  #--
-  # COURSE_LENGTH
-  #--
-  # COURSE_SUBJECT
-  #--
-  # MISC_COURSE_DETAILS
-  #--
-  # DRIVERS_LICENSE_REQ
-  #--
-  # DRIV_LIC_TYPE
-  #--
-  # ADDTL_LIC
-  #--
   # EXAM_TYPE
   INT_DEPT_PROM <- ifelse(sum(str_detect(section_headings, "INTERDEPARTMENTAL PROMOTIONAL|INTERDEPARMENTAL PROMOTIONAL")) == 1, 1, 0)
   DEPT_PROM <- ifelse(sum(str_detect(section_headings, "DEPARTMENTAL PROMOTIONAL|DEPARMENTAL PROMOTIONAL")) == 1, 1, 0)
@@ -523,34 +497,59 @@ parse_bulletin <- function(file_name, file_path){
   # mean and cv taken over lower bounds of salary scales
   df_annSalary <- cbind(df_annSalary_DWP, df_annSalary_GEN)
   rm(df_annSalary_DWP, df_annSalary_GEN)
-  salary_min_DWPandGEN <- min(df_annSalary$salary_min_DWP, df_annSalary$salary_min_GEN, na.rm = T)
-  salary_max_DWPandGEN <- max(df_annSalary$salary_max_DWP, df_annSalary$salary_max_GEN, na.rm = T)
-  salScale_loBound_DWP <- as.character(df_annSalary$salScale_loBound_DWP)
-  salScale_loBound_GEN <- as.character(df_annSalary$salScale_loBound_GEN)
-  if(is.na(salScale_loBound_DWP)){salScale_loBound_DWP <- NULL}
-  if(is.na(salScale_loBound_GEN)){salScale_loBound_GEN <- NULL}
-  salScale_loBound_DWPandGEN <- paste(c(salScale_loBound_DWP, salScale_loBound_GEN), collapse = ", ")
-  #salScale_upBound_DWPandGEN <- paste(df_annSalary$salScale_upBound_DWP, df_annSalary$salScale_upBound_GEN, collapse = ", ")
-  loBound_vec <- as.numeric(unlist(str_split(salScale_loBound_DWPandGEN, ", ")))
-  salary_mean_DWPandGEN <- mean(loBound_vec, na.rm = T)
-  salary_cv_DWPandGEN <- sd(loBound_vec, na.rm = T) / salary_mean_DWPandGEN
-  # Get salary scale difference min, max, mean, and coefficient of variation
-  salScaleDiff_DWP <- as.character(df_annSalary$salScaleDiff_DWP)
-  salScaleDiff_GEN <- as.character(df_annSalary$salScaleDiff_GEN)
-  if(is.na(salScaleDiff_DWP)){salScaleDiff_DWP <- NULL}
-  if(is.na(salScaleDiff_GEN)){salScaleDiff_GEN <- NULL}
-  salScaleDiff_DWPandGEN <- paste(c(salScaleDiff_DWP, salScaleDiff_GEN), collapse = ", ")
-  salScaleDiff_DWPandGEN <- unlist(str_split(salScaleDiff_DWPandGEN, ", "))
-  xx <- as.numeric(salScaleDiff_DWPandGEN)
-  salScaleDiff_min_DWPandGEN <- min(xx, na.rm = T)
-  salScaleDiff_max_DWPandGEN <- max(xx, na.rm = T)
-  salScaleDiff_mean_DWPandGEN <- mean(xx, na.rm = T)
-  salScaleDiff_cv_DWPandGEN <- sd(xx, na.rm = T) / salScaleDiff_mean_DWPandGEN
+  if(df_annSalary$n_salary_scales_DWP == 0 & 
+     df_annSalary$n_salary_scales_GEN == 0 &
+     df_annSalary$n_flat_rated_salaries_DWP == 0 & 
+     df_annSalary$n_flat_rated_salaries_GEN == 0){
+    # If no salary reported at all
+    # (one case: "AIRPORT POLICE SPECIALIST 3236 063017 (2).txt")
+    salary_min_DWPandGEN <- NA
+    salary_max_DWPandGEN <- NA
+    salary_meanLo_DWPandGEN <- NA
+    salary_cvLo_DWPandGEN <- NA
+    salScaleDiff_min_DWPandGEN <- NA
+    salScaleDiff_max_DWPandGEN <- NA
+    salScaleDiff_mean_DWPandGEN <- NA
+    salScaleDiff_cv_DWPandGEN <- NA
+  }else{
+    salary_min_DWPandGEN <- min(df_annSalary$salary_min_DWP, df_annSalary$salary_min_GEN, na.rm = T)
+    salary_max_DWPandGEN <- max(df_annSalary$salary_max_DWP, df_annSalary$salary_max_GEN, na.rm = T)
+    if(df_annSalary$n_salary_scales_DWP + df_annSalary$n_salary_scales_GEN > 1){
+      salScale_loBound_DWP <- as.character(df_annSalary$salScale_loBound_DWP)
+      salScale_loBound_GEN <- as.character(df_annSalary$salScale_loBound_GEN)
+      if(is.na(salScale_loBound_DWP)){salScale_loBound_DWP <- NULL}
+      if(is.na(salScale_loBound_GEN)){salScale_loBound_GEN <- NULL}
+      salScale_loBound_DWPandGEN <- paste(c(salScale_loBound_DWP, salScale_loBound_GEN), collapse = ", ")
+      #salScale_upBound_DWPandGEN <- paste(df_annSalary$salScale_upBound_DWP, df_annSalary$salScale_upBound_GEN, collapse = ", ")
+      loBound_vec <- as.numeric(unlist(str_split(salScale_loBound_DWPandGEN, ", ")))
+      salary_meanLo_DWPandGEN <- mean(c(loBound_vec, salary_min_DWPandGEN), na.rm = T)
+      salary_cvLo_DWPandGEN <- sd(c(loBound_vec, salary_min_DWPandGEN), na.rm = T) / salary_meanLo_DWPandGEN
+      # Get salary scale difference min, max, mean, and coefficient of variation
+      salScaleDiff_DWP <- as.character(df_annSalary$salScaleDiff_DWP)
+      salScaleDiff_GEN <- as.character(df_annSalary$salScaleDiff_GEN)
+      if(is.na(salScaleDiff_DWP)){salScaleDiff_DWP <- NULL}
+      if(is.na(salScaleDiff_GEN)){salScaleDiff_GEN <- NULL}
+      salScaleDiff_DWPandGEN <- paste(c(salScaleDiff_DWP, salScaleDiff_GEN), collapse = ", ")
+      salScaleDiff_DWPandGEN <- unlist(str_split(salScaleDiff_DWPandGEN, ", "))
+      xx <- as.numeric(salScaleDiff_DWPandGEN)
+      salScaleDiff_min_DWPandGEN <- min(xx, na.rm = T)
+      salScaleDiff_max_DWPandGEN <- max(xx, na.rm = T)
+      salScaleDiff_mean_DWPandGEN <- mean(xx, na.rm = T)
+      salScaleDiff_cv_DWPandGEN <- sd(xx, na.rm = T) / salScaleDiff_mean_DWPandGEN
+    }else{
+      salary_meanLo_DWPandGEN <- salary_min_DWPandGEN
+      salary_cvLo_DWPandGEN <- NA
+      salScaleDiff_min_DWPandGEN <- NA
+      salScaleDiff_max_DWPandGEN <- NA
+      salScaleDiff_mean_DWPandGEN <- NA
+      salScaleDiff_cv_DWPandGEN <- NA
+    }
+  }
   #
   df_annSalary_DWPandGEN <- data.frame(salary_min_DWPandGEN,
                                        salary_max_DWPandGEN,
-                                       salary_mean_DWPandGEN,
-                                       salary_cv_DWPandGEN,
+                                       salary_meanLo_DWPandGEN,
+                                       salary_cvLo_DWPandGEN,
                                        salScaleDiff_min_DWPandGEN,
                                        salScaleDiff_max_DWPandGEN,
                                        salScaleDiff_mean_DWPandGEN,
@@ -582,11 +581,8 @@ parse_bulletin <- function(file_name, file_path){
                        Selection_Process_Text = str_selectProc,
                        num_words_SelectProc = num_words_SelectProc,
                        num_sents_SelectProc = num_sents_SelectProc,
-                       words_per_sent_SelectProc = words_per_sent_SelectProc,
-                       Selection_Certification_Text = str_selectCert,
-                       num_words_SelectCert = num_words_SelectCert,
-                       num_sents_SelectCert = num_sents_SelectCert,
-                       words_per_sent_SelectCert = words_per_sent_SelectCert)
+                       words_per_sent_SelectProc = words_per_sent_SelectProc
+                       )
   list_df_out <- list(df_out, df_jobExpInfo, df_annSalary)
   df_out <- as.data.frame(do.call(cbind, list_df_out))
   return(df_out)
@@ -964,7 +960,7 @@ semantic_alignment <- function(txt_to_assess, df_wordVecs, list_semantic_poles){
   semantic_alignment_pole_2 <- as.numeric(lsa::cosine(bulletinVec, pole_2_vec))
   
   semantic_score <- semantic_alignment_pole_1 - semantic_alignment_pole_2
-  print(semantic_score)
+  #print(paste("semantic score: ", semantic_score))
   return(semantic_score)
   
 }
@@ -1002,7 +998,7 @@ df <- df_outputFile
 df$Str <- paste(df$Duties, df$Requirements)
 df$Str <- paste(df$Str, df$Process_Notes)
 df$Str <- paste(df$Str, df$Selection_Process)
-df$Str <- paste(df$Str, df$Selection_Certification)
+#df$Str <- paste(df$Str, df$Selection_Certification)
 #df$Str[145]
 # df$num_words <- str_count(df$Str, "\\w+")
 # nsent_vec <- c()
@@ -1022,8 +1018,8 @@ bulletin_corpus <- processCorpus(bulletin_corpus)
 # df_bullcorp <- read.table("bulletin_vec.txt")
 
 COCA_singleFile_path <- paste0(dir,"COCAsample_single_file.txt")
-df_in_COCA <- read.table(COCA_singleFile_path)
-COCA_corpus <- Corpus(VectorSource(df_in_COCA$x))
+df_COCA <- read.table(COCA_singleFile_path)
+COCA_corpus <- Corpus(VectorSource(df_COCA$x))
 COCA_corpus <- processCorpus(COCA_corpus)
 #COCA_corpus[[1]]$content
 length(COCA_corpus)
@@ -1055,12 +1051,12 @@ df_wordVecs <- as.data.frame(read_delim("vector.txt",
                                         skip = 1, delim = " ",
                                         col_names = c("Word", paste0("E", 1:wordvec_length))))
 df_wordVecs <- df_wordVecs[-nrow(df_wordVecs), ]
-global_vocab <- df_wordVecs$Word
-#length(global_vocab)
-class(df_wordVecs$Word)
-grep("white", global_vocab)
-global_vocab[grep("hind", global_vocab)]
-distance(file_name = "vec.bin", search_word = "african-american", num = 10)
+# global_vocab <- df_wordVecs$Word
+# #length(global_vocab)
+# class(df_wordVecs$Word)
+# grep("white", global_vocab)
+# global_vocab[grep("hind", global_vocab)]
+# distance(file_name = "vec.bin", search_word = "african-american", num = 10)
 
 feminine_semantic_pole <- c("feminin", "femal", "woman", "women", "communal", "inclus")
 masculine_semantic_pole <- c("man", "men", "male", "domin", "exclus")
@@ -1072,6 +1068,12 @@ list_semantic_poles <- list(fem_semantic_vec, masc_semantic_vec)
 
 outlist <- map(bulletin_corpus$content, semantic_alignment, df_wordVecs, list_semantic_poles)
 fem_semanticAlignment_score <- do.call(c, outlist)
+
+set.seed(1234)
+ind_sample <- sample(1:length(COCA_corpus), 10)
+COCA_sample <- COCA_corpus$content[ind_sample]
+
+fem_semanticAlignment_score_COCA <- 
 
 hist(fem_semanticAlignment_score)
 
@@ -1087,74 +1089,69 @@ ind_bottom_ordered <- ind_bottom[order(fem_semanticAlignment_score[ind_bottom], 
 data.frame(Jobs_with_highest_masculine_alignment = df$JOB_CLASS_TITLE[ind_bottom_ordered],
            Gender_score = fem_semanticAlignment_score[ind_bottom_ordered])
 
-mean(df$min_entry_salaries_all_GEN[ind_top], na.rm = T)
-mean(df$min_entry_salaries_all_GEN[ind_bottom], na.rm = T)
+mean(df$salary_min_GEN[ind_top], na.rm = T)
+mean(df$salary_min_GEN[ind_bottom], na.rm = T)
+mean(df$salary_min_DWP[ind_top], na.rm = T)
+mean(df$salary_min_DWP[ind_bottom], na.rm = T)
 
-mean(df$min_entry_salaries_all_DWP[ind_top], na.rm = T)
-mean(df$min_entry_salaries_all_DWP[ind_bottom], na.rm = T)
 
-
-df$log_mean_entry_salaries_all_GEN <- log(df$mean_entry_salaries_all_GEN)
-df$log_mean_entry_salaries_all_DWP <- log(df$mean_entry_salaries_all_DWP)
-df$log_min_entry_salaries_all_GEN <- log(df$min_entry_salaries_all_GEN)
-df$log_min_entry_salaries_all_DWP <- log(df$min_entry_salaries_all_DWP)
-df$log_max_entry_salaries_all_GEN <- log(df$max_entry_salaries_all_GEN)
-df$log_max_entry_salaries_all_DWP <- log(df$max_entry_salaries_all_DWP)
-# 
-# df$log_min_salScaleDiff_GEN <- log(df$mean_salScaleDiff_GEN)
-# df$log_min_salScaleDiff_DWP <- log(df$mean_salScaleDiff_DWP)
-
+# Take logs for regression model
+df$log_salary_min_DWPandGEN <- log(df$salary_min_DWPandGEN)
+u <- df$log_salary_min_DWPandGEN
+df$FILE_NAME[which(is.nan(u))]
+df$FILE_NAME[which(is.infinite(u))]
+df$log_salary_max_DWPandGEN <- log(df$salary_max_DWPandGEN)
+u <- df$log_salary_max_DWPandGEN
+df$FILE_NAME[which(is.nan(u))]
+df$FILE_NAME[which(is.infinite(u))]
+df$log_salary_meanLo_DWPandGEN <- log(df$salary_meanLo_DWPandGEN)
+u <- df$log_salary_meanLo_DWPandGEN
+df$FILE_NAME[which(is.nan(u))]
+df$FILE_NAME[which(is.infinite(u))]
+df$log_salScaleDiff_min_DWPandGEN <- log(df$salScaleDiff_min_DWPandGEN)
+u <- df$log_salScaleDiff_min_DWPandGEN
+df$FILE_NAME[which(is.nan(u))]
+df$FILE_NAME[which(is.infinite(u))]
+df$log_salScaleDiff_max_DWPandGEN <- log(df$salScaleDiff_max_DWPandGEN)
+u <- df$log_salScaleDiff_max_DWPandGEN
+df$FILE_NAME[which(is.nan(u))]
+df$FILE_NAME[which(is.infinite(u))]
 df$log_num_words <- log(df$num_words_total)
 df$log_num_sents <- log(df$num_sents_total)
-
-# u <- df$log_mean_salScaleDiff_GEN
-# df$log_mean_salScaleDiff_GEN[which(is.infinite(u))] <- NA
-# u <- df$log_mean_salScaleDiff_DWP
-# df$log_mean_salScaleDiff_DWP[which(is.infinite(u))] <- NA
-# df$cv_entry_salaries_all_GEN
-
-
-df$log_max_entry_salaries_all_DWPandGEN <- NA
-df$log_min_entry_salaries_all_DWPandGEN <- NA
-#df$log_mean_salScaleDiff_DWPandGEN <- NA
-df$log_max_salScaleDiff_DWPandGEN <- NA
-df$log_min_salScaleDiff_DWPandGEN <- NA
-for(i in 1:nrow(df)){
-  df$log_min_salScaleDiff_DWPandGEN[i] <- log(min(df$min_salScaleDiff_DWP[i], df$min_salScaleDiff_GEN[i], na.rm = T))
-  df$log_max_salScaleDiff_DWPandGEN[i] <- log(max(df$max_salScaleDiff_DWP[i], df$max_salScaleDiff_GEN[i], na.rm = T))
-  
-  df$log_max_entry_salaries_all_DWPandGEN[i] <- log(max(c(df$max_entry_salaries_all_DWP[i], df$max_entry_salaries_all_GEN[i]), na.rm = T))
-  df$log_min_entry_salaries_all_DWPandGEN[i] <- log(min(c(df$min_entry_salaries_all_DWP[i], df$min_entry_salaries_all_GEN[i]), na.rm = T))
-  df$log_mean_salScaleDiff_DWPandGEN[i] <- log(mean(c(df$mean_salScaleDiff_DWP[i], df$mean_salScaleDiff_GEN[i]), na.rm = T))
-}
-
-u <- df$log_min_entry_salaries_all_DWPandGEN
-df$log_min_entry_salaries_all_DWPandGEN[which(is.infinite(u))] <- NA
-#u <- df$log_max_entry_salaries_all_DWPandGEN
-#df$log_max_entry_salaries_all_DWPandGEN[which(is.infinite(u))] <- NA
-u <- df$log_min_salScaleDiff_DWPandGEN
-df$log_min_salScaleDiff_DWPandGEN[which(is.infinite(u))] <- NA
-u <- df$log_max_salScaleDiff_DWPandGEN
-df$log_max_salScaleDiff_DWPandGEN[which(is.infinite(u))] <- NA
-
+#df$log_word_per_sent <- log(df$num_words_total / df$num_sents_total)
+#----------------------------------------------------
 df$fem_semanticAlign_score <- fem_semanticAlignment_score
-df$log_word_per_sent <- log(df$num_words_total / df$num_sents_total)
-
-mod <- lm(fem_semanticAlign_score ~ log_max_entry_salaries_all_DWPandGEN +
-            cv_salScaleDiff_DWPandGEN +
+#------------------------------------------------------
+mod <- lm(fem_semanticAlign_score ~ log_salary_max_DWPandGEN +
             log_num_words + log_num_sents, df)
-#lnum_words + lnum_sent, df)
-summary(mod)  
-colnames(df)
+summary(mod)
+m_table <- tidy(mod)
+kable(m_table, "html") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "responsive"))
 
-
-mod <- lm(lmax_entry_salaries_all_DWPandGEN ~ fem_semAlign_score +
-            lmax_salScaleDiff_DWPandGEN +
-            lword_per_sent + lnum_sent, df)
-#lnum_words + lnum_sent, df)
-summary(mod)  
-
-
+#======================================================
+# The coefficients are all significant, with p values essentially at zero.
+# 
+# The independent variables are logged in this model, so the coefficients can
+# be interpreted as percentages (if multiplied by 100).
+#
+# The output here thus means that marginal increments in a job bulletin's feminine
+# semantic alignment go hand in hand with about a 1%-2% decrease in the maximum
+# salary indicated in that bulletin. Basically, higher feminine semantic alignment 
+# is associated with lower salaries.
+#
+# Let that sink in.
+# 
+# Note also that marginal increments in the feminine semantic alignment are
+# associated with about a 2%-3% decrease in the word count, but also a 1%-2%
+# increase in the number of sentences in the bulletin. Higher feminine semantic
+# alignment is associated with lower words per sentence. Several bulletins contain
+# extremely long sentences consisting of long lists of duties/requirements separated
+# by commas and/or semicolons. The results here suggest that those long lists are
+# correlated with masculine semantic alignment and higher salaries.
+#
+# 
+#======================================================
 
 caucasian_semantic_pole <- c("white", "american")
 african_american_semantic_pole <- c("african-american", "black", "american")
