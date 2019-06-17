@@ -380,6 +380,7 @@ get_salaries <- function(str_annSalary){
 #file_name <- "ADVANCE PRACTICE PROVIDER CORRECTIONAL CARE 2325 020808 REV 111214.txt"
 #file_name <- "HELICOPTER MECHANIC 3742 072206 REV 020818.txt"                        
 #file_name <- "PRINCIPAL DETENTION OFFICER 3215 101218.txt"    
+#file_name <- "POLICE COMMANDER 2251 092917.txt"
 parse_bulletin <- function(file_name, file_path){
   print(file_name)
   bulletin_lines <- get_bulletinLines(file_name, file_path, quietly = T)
@@ -928,7 +929,9 @@ df_add_to_dictionary <- data.frame(Field_Name = field_name_vec,
 # A broad cross-section covering academic, news, and magazine articles, spoken, and fiction.
 # x words. The full corpus is available from .... The free sample
 # seemed to us to be large enough to capture usage patterns, and this hunch
-# appears to be borne out in the analysis below.
+# appears to be borne out in the analysis below. https://www.english-corpora.org/coca/
+# Over 560 million words, 1990-2017.
+# 1.7 million words https://www.corpusdata.org/formats.asp
 #
 # 
 #============================================
