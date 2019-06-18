@@ -11,21 +11,24 @@ knitr::opts_chunk$set(echo = TRUE, fig.align = "center", message = FALSE, warnin
 # Introduction
 
 ## Problem background
+
+The City of Los Angeles has a lot of hiring to do in the coming years. To ensure that positions are filled with the best possible talent, job bulletins must be worded in a way that attracts a diverse pool of applicants. But how to assess potential bias in job bulletin wordings?
+
 Numerous peer reviewed studies have examined job announcement texts for gender bias (Tang et al., 2017; Hannak et al. 2017; Askehave & Zethsen, 2014; Gaucher, Friesen, & Kay 2011; Bem & Bem 1973). The general finding is that many job announcements tend to be worded in a way that biases the applicant pool towards male applicants.
 
-The main theory emerging from these studies is that bias towards male applicants occurs through "gendered" wordings that embed conceptual gender stereotypes into language (Tang et al. 2017). Lists of such gendered words and phrases have been ellicited through surveys, and then subsequently compiled and curated (Gaucher, Friesen, & Kay 2011). Generally speaking, these lists associate females with communal, inclusive, caring traits, and males with aggresive, dominant, exclusive, agentic traits. The two state of the art gender bias detection services in existence today, Textio and Unitive, are based on these lists. Textio and Unitive charge a non-trivial fee for access to their services. Tang et al. (2017) have devised an algorithm that accurately mimicks the services.
+The main theory emerging from these studies is that bias towards male applicants occurs through "gendered" wordings that embed conceptual gender stereotypes into language (Tang et al. 2017). Lists of such gendered words and phrases have been ellicited through surveys, and then subsequently compiled and curated (Gaucher, Friesen, & Kay 2011). Generally speaking, these lists associate females with communal, inclusive, caring traits, and males with aggresive, dominant, exclusive, agentic traits. The two state of the art gender bias detection services in existence today, Textio and Unitive, are based on these lists. Textio and Unitive charge a non-trivial fee for access to their services, although Tang et al. (2017) have devised an algorithm that accurately mimicks the services.
 
 ## Problems with current methods
 
-There are a few problems with the gendered list-based approach. One of these is that gender stereotypes evolve over time. Female job applicants today do not necessarily identify with lists of traits identified two decades ago (Donnelly & Twenge 2017). In order to accurately reflect biases embedded in today's language, lists must therefore be continually updated. Ideally, such updates would be based on new, periodic surveys--an expensive and time consuming process. Less ideally, lists might be modified by their curators or "experts", introducing a regrettable degre of arbitrariness and subjective bias into the method. Given the proprietary, confidential nature of the Textio/Unitive business model, we cannot know if/how these companies update their lists. This lack of transparency is itself a further drawback of the list-based approach.
+There are a few problems with the gendered list-based approach. One of these is that gender stereotypes evolve over time. Recent evidence suggests that female job applicants today do not necessarily identify with lists of traits ellicited two decades ago (Donnelly & Twenge 2017). In order to accurately reflect biases embedded in today's language, lists must therefore be continually updated. Ideally, such updates would be based on new, periodic surveys. But surveys are typically limited to a particular age group (university students, for eg.) in a particular geographical area, and thus offer but a glimpse of the potential pool of female applicants. Surveys are also probably too expensive and time consuming to be conducted on a periodic basis. In lieu of surveys, lists might be modified by their curators or "experts", but this introduces a regrettable degre of arbitrariness and subjective bias into the method. Given the proprietary, confidential nature of the Textio/Unitive business model, we cannot know if and/or how these companies update their lists. This lack of transparency is itself a further drawback of the list-based approach.
 
 ## Proposed solution: COCA-based semantic bias detection
 
 In this kernel, I propose a new gender bias detection method that is transparent, list-free, self-updating, and free of charge. It can also be used to detect racial bias, or bias with respect to any two user-defined "semantic poles". Semantic poles can be defined by as few or as many words as the user would like. In the case of gender bias detection, the poles might be defined by "feminine", "communal", "inclusive" on the one hand, and "masculine", "dominant", "exclusive", on the other. (Curated lists can thus inform the definition of semantic poles, but the prposed method is not dependent on such lists.)
 
-Instead of lists, the proposed method is based on the Corpus of Contemporary American English (COCA, 2018), which is continually updated to accurately reflect current common American English usage across academic, magazine, news, fiction, and spoken texts. The COCA is taken as the semantic baseline, and then a job bulletin's (or any given text's) semantic alignment with respect to the user-defined poles is measured against this baseline.
+Instead of lists, the proposed method is based on the Corpus of Contemporary American English (COCA, 2018), which is continually updated to accurately reflect current common American English usage across a wide range of text modalities--academic, magazine, news, fiction, and spoken. The COCA is taken as the semantic baseline, and then a job bulletin's (or any given text's) semantic alignment with respect to the user-defined poles is measured against this baseline.
 
-This is achieved by first converting words to vectors via Google's word2vec function. Word vectors effectively encode the "semantic position" of the word with respect to every other word in the corpus, allowing words to be added and subtracted, as in the following classic example:
+Numerical measurement of semantic alignment is achieved by first converting words to vectors via Google's word2vec function. Word vectors effectively encode the "semantic position" of the word with respect to every other word in the corpus, allowing words to be added and subtracted, as in the following classic example:
 
 $$
 \mathbf{w}_{queen} \approx  \mathbf{w}_{king} - \mathbf{w}_{man} + \mathbf{w}_{woman}
@@ -35,23 +38,18 @@ where $\mathbf{w}_{xyz}$ represents the vector of the word "xyz".
 Words can also be averaged. When the user defines a semantic pole by more than one word, the pole is defined as the average of these word vectors. For example, if $\mathbf{w}_f$ represents the feminine semantic pole mentioned above then
 $$
 \mathbf{w}_f = \frac{1}{3}(\mathbf{w}_{feminine}+\mathbf{w}_{communal}+\mathbf{w}_{inclusive})
-
 $$
 By contrast, the masculine semantic pole would be defined
-
 $$
 \mathbf{w}_m = \frac{1}{3}(\mathbf{w}_{masculine}+\mathbf{w}_{dominant}+\mathbf{w}_{exclusive})
-
 $$
 Let the average word of an entire job bulletin be defined
-
 $$
 \mathbf{w}_b = \frac{1}{n} \sum_i^n\mathbf{w}_i
 $$
 where $\mathbf{w}_i$ is the $i^{th}$ word in the bulletin.
 
 For each LA City job bulletin, the proposed method takes the bulletin's average word and then computes its closeness (cosine similarity) to the two user-defined semantic poles. The difference between these two distances is then intrepreted as the bulletin's "semantic alignment" with respect to the two poles. For example,
-
 $$
 \mathrm{Feminine}\:\:\mathrm{Semantic}\:\:\mathrm{Alignment}=\cos(\theta(\mathbf{w}_b,\mathbf{w}_f)) - \cos(\theta(\mathbf{w}_b,\mathbf{w}_m))
 $$
@@ -60,35 +58,37 @@ $$
 \cos(\theta(\mathbf{w}_x,\mathbf{w}_y)) = \frac{\mathbf{w}_x\cdot\mathbf{w}_y}{\|\mathbf{w}_x\|\|\mathbf{w}_y\|}
 $$
 
+The negative of the feminine semantic alignment can be interpreted as the masculine semantic alignment score.
+
 ## Summary of results
 
-Most bulletin feminine semantic alignment scores are less than zero, indicating predominantly masculine alignment.
+The highest feminine semantic alignment scores correspond to lower paying, junior, or assistant level job classes (including clerical and 
+nursing roles), while the highest masculine alignment scores correspond to higher paying, senior level or supervisory job classes. 
+The mean salary of job classes with high feminine semantic alignment is considerably less than that of job classes with the high masculine semantic alignment. This disparity is more pronounced for DWP salaries than for GEN salaries.
 
-Moreover, the highest feminine semantic alignment scores correspond to lower paying, junior level job classes (including clerical and nursing roles), while the lowest feminine alignment scores (you could also say the highest masculine semantic alignment scores) correspond to higher paying, senior level or supervisory job classes. The difference in pay is less pronouned for Department of Water and Power salaries.
+In regression analysis, I find a roughly 1 percent (+/- 0.7%) decrease in entry salary per marginal increase in the feminine semantic alignment score $(p < 0.001)$.
 
-In regression analysis, I find a roughly 1 percent decrease in entry salary per marginal increase in the feminine semantic alignment score $(p<0.001)$ . Word count and sentence count also bear a statistically significant relation to the alignment score. Higher word counts are associated with higher masculine alignment, while higher sentence counts are associated with higher feminine alignment, suggesting that shorter job bulletins and/or shorter sentences (i.e., the same information broken up into more sentences) may attract more female applicants.
+Word count and sentence count bear a statistically significant relation to the alignment score. Higher word counts are associated with higher masculine alignment, while higher sentence counts are associated with higher feminine alignment, suggesting that shorter job bulletins and/or shorter sentences (i.e., the same information broken up into more sentences) may attract more female applicants.
 
 ## Kernel section organization
  
-1) Data cleaning
-2) Job class and data dictionary files with the information requested by LA City
-3) Semantic alignment analysis of LA City job bulletins
+The kernel is organized as follows:
 
-Load/define required libraries, functions, and folders.
+1) Data cleaning
+2) Parsing of bulletins to retrieve the job class information requested by LA City, plus additional salary information not requested but useful. Generation of output .csv file containing this information, as well as an extended data dictionary .csv file documenting the new variables I have added.
+3) Gender semantic alignment analysis of LA City job bulletins
+4) Racial semantic alignment analysis of LA City job bulletins
+
+To get started, below I load/define required libraries and folders. I also define the many functions needed to retrieve information from the job bulletins.
 
 
 ```{r}
 options(warn = -1, message = FALSE)
 #======================================================
-# bulletins_folder <- "../input/data-science-for-good-city-of-los-angeles/cityofla/CityofLA/Job Bulletins/"
-# COCA_folder <- "../input/coca-corpus-sample-as-single-file/"
-# output_folder <- "/kaggle/working/"
-#dir <- "D:/OneDrive - CGIAR/Documents/kaggle/CityofLA/"
-dir <- "CityofLA/"
-bulletins_folder <- paste0(dir, "Job Bulletins/")
-COCA_folder <- dir
-output_folder <- dir
-
+bulletins_folder <- "../input/data-science-for-good-city-of-los-angeles/cityofla/CityofLA/Job Bulletins/"
+dataDictionary_file_path <- "../input/data-science-for-good-city-of-los-angeles/cityofla/CityofLA/Additional data/kaggle_data_dictionary.csv"
+COCA_folder <- "../input/coca-corpus-sample-as-single-file/"
+output_folder <- "/kaggle/working/"
 #======================================================
 # Required libraries, load yourselves!
 pkgs <- c("tidyverse", "tidytext", "tm", "tokenizers", "rword2vec", "readr", "kableExtra")
@@ -641,34 +641,34 @@ str_selectProc <- gsub("r\xe9sum\xe9", "resume", str_selectProc)
                        num_words_total = num_words_total,
                        num_sents_total = num_sents_total,
                        words_per_sent_total = words_per_sent_total,
-                       Requirements_Text = str_Requirements,
                        num_words_requirements = num_words_Requirements,
                        num_sents_Requirements = num_sents_Requirements,
                        words_per_sent_Requirements = words_per_sent_Requirements,
-                       Duties_Text = str_Duties,
                        num_words_Duties = num_words_Duties,
                        num_sents_Duties = num_sents_Duties,
                        words_per_sent_Duties = words_per_sent_Duties,
-                       Process_Notes_Text = str_procNotes,
                        num_words_ProcNotes = num_words_ProcNotes,
                        num_sents_ProcNotes = num_sents_ProcNotes,
                        words_per_sent_ProcNotes = words_per_sent_ProcNotes,
-                       Selection_Process_Text = str_selectProc,
                        num_words_SelectProc = num_words_SelectProc,
                        num_sents_SelectProc = num_sents_SelectProc,
-                       words_per_sent_SelectProc = words_per_sent_SelectProc
-                       )
+                       words_per_sent_SelectProc = words_per_sent_SelectProc,
+                       Requirements_Text = str_Requirements,
+                       Duties_Text = str_Duties,
+                       Process_Notes_Text = str_procNotes,
+                       Selection_Process_Text = str_selectProc)
   list_df_out <- list(df_out, df_jobExpInfo, df_annSalary)
   df_out <- as.data.frame(do.call(cbind, list_df_out))
+  # Order columns so that host's variables come first
+  these_first <- c("FILE_NAME", "JOB_CLASS_TITLE", "JOB_CLASS_NO", "EXAM_TYPE", "OPEN_DATE", "EXP_LENGTH", "FULL_TIME_PART_TIME", "EXP_JOB_CLASS_TITLE", "JOB_CLASS_FUNCTION", "ENTRY_SALARY_DWP")
+  these_second <- setdiff(colnames(df_out), these_first)
+  df_out <- df_out[, c(these_first, these_second)]
   return(df_out)
 }
 
 ```
-
-
-# 1) DATA CLEANING
+# 1) Data Cleaning
 Compare job titles in file names with job titles found inside the file. Look for mislabeled or duplicate files.
-
 ```{r}
 
 file_names <- list.files(bulletins_folder)
@@ -691,6 +691,7 @@ duplicated_jobTitles_fileName <- jobTitle_from_fileName[ind_dup]
 kable(duplicated_jobTitles_fileName)
 
 ```
+
 So, there are two job titles that are found in more than one file name.
 
 ```{r}
@@ -699,6 +700,7 @@ duplicated_jobTitles_txt <- jobTitle_from_txt[ind_dup]
 kable(duplicated_jobTitles_txt)
 
 ```
+
 So, there are five job titles that are found in more than one file. Two of these are the same ones we just saw repeated in the file names. Let's compare the duplicates' job titles as displayed in the file names vs. as displayed inside the files:
 
 ```{r}
@@ -706,7 +708,9 @@ df_look <- data.frame(jobTitle_from_fileName, jobTitle_from_txt)
 kable(df_look[which(jobTitle_from_txt %in% duplicated_jobTitles_txt), ])
 
 ```
+
 There is a mismatch between job titles as found in the file names vs. as found inside the files for three jobs:
+
 "ANIMAL CARE TECHNICIAN SUPERVISOR"
 "SENIOR EXAMINER OF QUESTIONED DOCUMENTS"
 "WASTEWATER COLLECTION SUPERVISOR"
@@ -724,8 +728,10 @@ file_names <- file_names[-ind_rm]
 ```
 
 There are also two duplicates without a mismatch between the file name and file content versions of the job title:
+
 "CHIEF CLERK POLICE"
 "SENIOR UTILITY SERVICES SPECIALIST"
+
 Upon inspection of the bulletin folder, there are two versions of each of these bulletins, one being more recent than the other. The job class number also differs between the two versions. I assume the host prefers to keep the more recent versions. To find out which is more recent I have to extract the opening dates.
 
 ```{r}
@@ -743,7 +749,9 @@ df_look <- data.frame(dup_file_name = dup_files, open_date = openDate_vec)
 kable(df_look)
 
 ```
+
 So, in both cases, there is a bulletin with a 2015 open date and one with a 2018 open date. Assuming the more recent version is more valid, let's delete the 2015 versions.
+
 ```{r}
 
 dupFiles_old <- as.character(df_look$dup_file_name[c(1, 4)])
@@ -775,6 +783,7 @@ kable(duplicated_jobClassNum_fileName)
 kable(file_names[ind_dup])
 
 ```
+
 So, there is one job class number, "7260", that is duplicated in the file names. Let's see both of the files that have this job class number in their file name.
 
 ```{r}
@@ -785,8 +794,8 @@ df_look <- data.frame(file_name = file_names[ind_look],
                       jobClassNum_from_txt = jobClassNum_from_txt[ind_look])
 kable(df_look)
 ```
-The AIRPORT MANAGER job class number in its file name agrees with its number in the file contents. Not so for the PRINCIPAL DEPUTY CONTROLLER.
-This suggests that the job class number found in the file name of the PRINCIPAL DEPUTY CONTROLLER bulletin is incorrect. It should be the same as the number inside the file (9653).
+
+The AIRPORT MANAGER job class number in its file name agrees with its number in the file contents. Not so for the PRINCIPAL DEPUTY CONTROLLER. This suggests that the job class number found in the file name of the PRINCIPAL DEPUTY CONTROLLER bulletin is incorrect. It should be the same as the number inside the file (9653).
 
 What about duplicate job class numbers inside the files?
 
@@ -797,11 +806,13 @@ duplicated_jobClassNum_txt <- jobClassNum_from_txt[ind_dup]
 kable(duplicated_jobClassNum_txt)
 kable(file_names[ind_dup])
 ```
+
 So, there are no file contents with duplicate job class numbers.
 
-We assume from here on out that the job class number found in the bulletin is more valid than the one found in the file name. Hence no cleaning action is required here. Erroneous job class numbers in the file names will not affect my .csv output file.
+I assume from here on out that the job class number found in the bulletin is more valid than the one found in the file name. Hence no cleaning action is required here. Erroneous job class numbers in the file names will not affect my .csv output file.
 
 Nonetheless, it might be of interest to the host to know how many instances of disagreement there are between file name job class numbers and file content job class numbers. So let's pause to check:
+
 ```{r}
 
 test <- c()
@@ -814,7 +825,8 @@ df_look <- data.frame(file_name = file_names[ind_disagree],
                       jobClassNum_from_txt = jobClassNum_from_txt[ind_disagree])
 kable(df_look)
 ```
-So, there are thirteen bulletins with disagreement between the file name and file content. We see here that in most of these cases this is because no job class number is reported in the file name.
+
+So, there are thirteen bulletins with disagreement between the file name and file content. We see here that in most of these cases this is because no job class number is reported in the file name. (In some cases, my code mistook the open date year as the job class number. By getting the job class number from within the file and not from the file name, I'll avoid this problem.)
 
 Our job class number getter function allows for NA output when no job class number is found. Are there any such instances?
 
@@ -823,7 +835,11 @@ Our job class number getter function allows for NA output when no job class numb
 ind_NA <- which(is.na(jobClassNum_from_txt))
 kable(file_names[ind_NA])
 ```
-Yes, the "Vocational Worker  DEPARTMENT OF PUBLIC WORKS.txt" bulletin has no job class number--neither in the file name nor in the file contents. Upon closer inspection, this bulletin is anomalous in other ways, particularly in its structure and salary information. It is too extreme a case for our code to accomodate, and so we will remove it.
+
+Yes, the "Vocational Worker  DEPARTMENT OF PUBLIC WORKS.txt" bulletin has no job class number--neither in the file name nor in the file contents. Upon closer inspection, this bulletin is anomalous in other ways, particularly in its structure and salary information. It is too extreme a case for my code to accomodate, and so I will remove it.
+
+There are 677 bulletins left after cleaning.
+
 ```{r}
 
 special_case <- "Vocational Worker  DEPARTMENT OF PUBLIC WORKS.txt"
@@ -831,7 +847,8 @@ ind_rm <- which(file_names == special_case)
 file_names <- file_names[-ind_rm]
 print(paste("Number of bulletins after cleaning: ", length(file_names)))
 ```
-# 2) RETRIEVING SPECIFIC INFO FROM BULLETINS
+
+# 2) Retrieving information from bulletins
 My strategy for retrieving info from the bulletins is to break the bulletin up into sections according to its ALL CAPS headings. These headings vary somewhat across bulletins in spelling, spacing, order of appearance, and such; but there is enough consistency to build a script off of.
 
 The example output file kindly provided by the host indicates that each row should be assigned to each job (sub-)requirement. After long deliberation, I decided to go with a simpler one-row-per-bulletin output format.
@@ -844,14 +861,25 @@ The one-row-per-bulletin format is a stopgap measure pending clarification or ho
  
 Given this one-row-per-bulletin format, under EXP_JOB_CLASS_TITLE, multiple job experience requirements are separated by "|". The corresponding info under EXP_LENGTH, FULL_TIME_PART_TIME, EXP_JOB_CLASS_TITLE, and JOB_CLASS_FUNCTION, is likewise separated by "|". (The "|" does not necessarily mean "or".)
 
-# CHANGES TO THE DATA DICTIONARY
+## New data added
 
-I thought it would be interesting to compare salary levels to some measure of semantic gender/race diversity in the bulletin text. In order to do this, we have created many new salary variables (mean, max, min, and coefficient of variation for GEN and DWP salary ranges and flat rates). We modify the data dictionary accordingly.
- 
-The bulletins contain a lot of boiler plate text that doesn't vary much from one bulletin to another. To reduce noise as much as possible in our diversity analysis farther below, we conduct our analysis only over the text that is unique to each bulletin. The unique text seems to be contained in the REQUIREMENTS, DUTIES, PROCESS NOTES, and, occassionally, SELECTION PROCESS and SELECTIVE CRITERIA sections of the bulletins. These sections are thus retained in the output file for each bulletin.
+I have added several new variables to the job class .csv file.
 
-We also add the word and sentence counts for each of these sections to the file, as well as the word count devided by the sentence count. We also calculate the total for all sections.
+### Salary variables
 
+Most job bulletins indicate multiple entry salaries, some of which are ranges and some of which are flat-rated. I developed code to parse through this information and:
+
+-separate salary scales from flat rates
+-report the min and max of all indicated salaries
+-report the mean and coefficient of variation of all indicated salries (in the case of salary scales, only the lower bounds are included in this calculation)
+-report the differences between respective salary scale maximums and minimums
+-report the mean and coefficient of variation of these differences
+
+This is done for GEN and DWP separately, and also for GEN and DWP together.
+
+### Word/sentence counts in unique text
+
+The bulletins contain a lot of "boiler plate" text that doesn't vary much from one bulletin to another. To reduce noise as much as possible in our diversity analysis farther below, we conduct our analysis only over the text that is unique to each bulletin. The unique text seems to be contained in the REQUIREMENTS, DUTIES, PROCESS NOTES, and, occassionally, SELECTION PROCESS sections of the bulletins. These sections are thus retained in the output file for each bulletin. We also include the word and sentence counts for each of these sections, as well as the total word and sentence counts over all of these sections.
 ```{r}
 list_df_outputFile <- map(file_names, parse_bulletin, bulletins_folder)
 df_outputFile <- do.call(rbind, list_df_outputFile)
@@ -863,13 +891,181 @@ for(i in 1:ncol(df_outputFile)){
   }
 }
 #-----------------------------------------------
-# Output file
+# Output files
 output_file_name <- "Job Classes Output.csv"
 output_file_path <- paste0(output_folder, output_file_name)
 #"/kaggle/working/submission.csv"
 write.csv(df_outputFile, output_file_path)
-#df_in <- read.csv(output_file_path, stringsAsFactors = F)
-#df_in[1:5,1:5]
+
+# Add new variables to data dictionary
+colnames_dictionary <- c("Field Name", "Annotation Letter", "Description", "Data Type", "Allowable Values", "Accepts Null Values", "Additional Notes")
+#============================================================
+# New unique text, word/sentence counts
+#============================================================
+# New unique text, word/sentence count field names
+fieldNames_wordSentCount <- c("num_words_total",
+                       "num_sents_total",
+                       "words_per_sent_total",
+                       "num_words_requirements",
+                       "num_sents_Requirements",
+                       "words_per_sent_Requirements",
+                       "num_words_Duties",
+                       "num_sents_Duties",
+                       "words_per_sent_Duties",
+                       "num_words_ProcNotes",
+                       "num_sents_ProcNotes",
+                       "words_per_sent_ProcNotes",
+                       "num_words_SelectProc",
+                       "num_sents_SelectProc",
+                       "words_per_sent_SelectProc",
+                        "Requirements_Text",
+                       "Duties_Text",
+                       "Process_Notes_Text",
+                       "Selection_Process_Text")
+# New unique text, word/sentence count annotation letters
+xx1 <- c("Nw", "Ns", "WpS")
+xx2 <- c("_Tot", "_Req", "_Dut", "_Proc", "_Sel")
+outlist <- list()
+for(i in 1:length(xx2)){
+   outlist[[i]] <- paste0(xx1, xx2[i])
+}
+xx3 <- do.call(c, outlist)
+annotationLetters_wordSentCount <- c(xx3,
+                                     "Req",
+                       "Dut",
+                       "Proc",
+                       "Sel")
+
+# New unique text, word/sentence count variable descriptions
+xx1 <- c("Number of words in",
+  "Number of sentences in",
+  "Words per sentence (Nw / Ns),")
+xx2 <- c(" Requirements, Duties, Process Notes, and Selection Process sections",
+               " Requirements section",
+         " Duties section",
+         " Process Notes section",
+         " Selection Process section")
+outlist <- list()
+for(i in 1:length(xx2)){
+  outlist[[i]] <- paste0(xx1, xx2[i])
+}
+xx3 <- do.call(c, outlist)
+descriptions_wordSentCount <- c(xx3,
+                                "Requirements section text",
+                                "Duties section text",
+                                "Process Notes section text",
+                                "Selection Process section text")
+
+# New unique text, word/sentence count variable data type
+dataType_wordSentCount <- c(rep(c("Integer", "Integer", "Float"), length(xx3) / 3), rep("String", 4))
+# New unique text, word/sentence count variable allowable values
+allowValues_wordSentCount <- c(rep(c("Positive integers", "Positive integers", "Positive real numbers"), length(xx3) / 3), "Requirements section text",
+                               "Duties section text",
+                               "Process Notes section text",
+                               "Selection process section text"
+                               )
+# New unique text, word/sentence count variable accepts null?
+acceptsNull_wordSentCount <- c(rep("Yes", length(xx3)), rep("No", 4))
+df_addNew1 <- data.frame(fieldNames_wordSentCount,
+                         annotationLetters_wordSentCount,
+                         descriptions_wordSentCount,
+                         dataType_wordSentCount,
+                         allowValues_wordSentCount,
+                         acceptsNull_wordSentCount,
+                         AddNotes = "")
+colnames(df_addNew1) <- colnames_dictionary
+#============================================================
+# New salary variables
+#============================================================
+# New salary variable field names
+xx_fieldNames_salaries <- c("n_salary_scales",
+                 "n_flat_rated_salaries",
+                 "salary_scales",
+                 "flat_salaries",
+                 "salary_min",
+                 "salary_max",
+                 "salScale_loBound",
+                 "salScale_upBound",
+                 "salScaleDiff")
+
+xx_fieldNames_salaries_GEN <- paste0(xx_fieldNames_salaries, "_GEN")
+xx_fieldNames_salaries_DWP <- paste0(xx_fieldNames_salaries, "_DWP")
+xx_fieldNames_salaries_DWPandGEN <- c("salary_min_DWPandGEN",
+                                      "salary_max_DWPandGEN",
+                                      "salary_meanLo_DWPandGEN",
+                                      "salary_cvLo_DWPandGEN",
+                                      "salScaleDiff_min_DWPandGEN",
+                                      "salScaleDiff_max_DWPandGEN",
+                                      "salScaleDiff_mean_DWPandGEN",
+                                      "salScaleDiff_cv_DWPandGEN")
+fieldNames_salaries <- c(xx_fieldNames_salaries_DWP,
+                         xx_fieldNames_salaries_GEN,
+                         xx_fieldNames_salaries_DWPandGEN)
+# New salary variable annotation letters
+xx_annotationLetters_salaries <- c("Ns", "Nf", "Ss", "Sf", "S_min", "S_max", "Ss_lo", "Ss_up", "Ss_d")
+xx_annotationLetters_salaries_GEN <- paste0(xx_annotationLetters_salaries, "_GEN")
+xx_annotationLetters_salaries_DWP <- paste0(xx_annotationLetters_salaries, "_DWP")
+xx_annotationLetters_salaries_DWPandGEN <- c("S_min_DWPandGEN",
+                                       "S_max_DWPandGEN",
+                                       "S_muLo_DWPandGEN",
+                                       "S_cvLo_DWPandGEN",
+                                       "Ssd_min_DWPandGEN",
+                                       "Ssd_max_DWPandGEN",
+                                       "Ssd_mu_DWPandGEN",
+                                       "Ssd_cv_DWPandGEN")
+annotationLetters_salaries <- c(xx_annotationLetters_salaries_DWP,
+                          xx_annotationLetters_salaries_GEN,
+                          xx_annotationLetters_salaries_DWPandGEN)
+# New salary variable descriptions
+xx_descriptions_salaries <- c("Number of salary scales offered for this position",
+                              "Number of flat-rated salaries offered for this position",
+                              "Salary scales offered for this position",
+                              "Flat-rated salaries offered for this position",
+                              "Lowest salary offered for this position (minimum of Ss and Sf)",
+                              "Highest salary offered for this position (maximum of Ss and Sf)",
+                              "Salary scale lower bounds for this position",
+                              "Salary scale upper bounds for this position",
+                              "Difference between salary scale upper and lower bounds (Ss_up - Ss_lo)")
+xx_descriptions_salaries_GEN <- paste0(xx_descriptions_salaries, ", GEN only")
+xx_descriptions_salaries_DWP <- paste0(xx_descriptions_salaries, ", DWP only")
+xx_descriptions_salaries_DWPandGEN <- c("Lowest salary offered for this position (minimum of Ss and Sf)",
+                                        "Highest salary offered for this position (maximum of Ss and Sf)",
+                                        "Mean salary for this position, calculated over flat-rates (if any) AND the lower bounds of any salary scales (mean of Ss and Sf)",
+                                        "Coefficient of variation of all salaries offered for this position, calculated over flat-rates (if any) AND the lower bounds of any salary scales",
+                                        "Smallest difference between salary scale upper and lower bounds (minimum of Ss_d)",
+                                        "Largest difference between salary scale upper and lower bounds (maximum of Ss_d)",
+                                        "Mean difference between salary scale upper and lower bounds (mean of Ss_d)",
+                                        "Coefficient of variation of the differences between salary scale upper and lower bounds (coefficient of variation of Ss_d)")
+xx_descriptions_salaries_DWPandGEN <- paste0(xx_descriptions_salaries_DWPandGEN, ", DWP and GEN")
+descriptions_salaries <- c(xx_descriptions_salaries_DWP,
+                           xx_descriptions_salaries_GEN,
+                           xx_descriptions_salaries_DWPandGEN)
+
+# New salary variable data type
+dataType_salaries <- c(rep(c("Integer", "Integer", "String", "String", rep("Integer", 5)), 2),
+                       rep("Integer", 2), rep("Float", 2), rep("Integer", 2), rep("Float", 2))
+# New salary variable allowable values
+allowValues_salaries <- c(rep(c("Positive integers", "Positive integers", "List of numbers", "List of numbers", rep("Positive integers", 5)), 2),
+                          rep("Positive integers", 2), rep("Positive real numbers", 2), rep("Positive integers", 2),
+                          rep("Positive real numbers", 2))
+# New salary variable accepts null?
+acceptsNull_salaries <- rep("Yes", length(fieldNames_salaries))
+df_addNew2 <- data.frame(fieldNames_salaries,
+                         annotationLetters_salaries,
+                         descriptions_salaries,
+                         dataType_salaries,
+                         allowValues_salaries,
+                         acceptsNull_salaries,
+                         AddNotes = "")
+colnames(df_addNew2) <- colnames_dictionary
+#--------------------------------------------------
+df_addNew <- rbind(df_addNew1, df_addNew2)
+df_dataDictionary <- read.csv(dataDictionary_file_path)
+colnames(df_dataDictionary) <- colnames_dictionary
+df_dataDictionary <- rbind(df_dataDictionary, df_addNew)
+output_file_name <- "Data Dictionary Extended.csv"
+output_file_path <- paste0(output_folder, output_file_name)
+write.csv(df_dataDictionary, output_file_path)
 
 ```
 # 3) Semantic alignment analysis of LA City job bulletins
