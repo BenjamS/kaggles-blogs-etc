@@ -10,31 +10,37 @@ knitr::opts_chunk$set(echo = TRUE, fig.align = "center", message = FALSE, warnin
 ```
 # Introduction
 
-## The problem
+## Problem background
 Numerous peer reviewed studies have examined job announcement texts for gender bias (Tang et al., 2017; Hannak et al. 2017; Askehave & Zethsen, 2014; Gaucher, Friesen, & Kay 2011; Bem & Bem 1973). The general finding is that many job announcements tend to be worded in a way that biases the applicant pool towards male applicants.
 
 The main theory emerging from these studies is that bias towards male applicants occurs through "gendered" wordings that embed conceptual gender stereotypes into language (Tang et al. 2017). Lists of such gendered words and phrases have been ellicited through surveys, and then subsequently compiled and curated (Gaucher, Friesen, & Kay 2011). Generally speaking, these lists associate females with communal, inclusive, caring traits, and males with aggresive, dominant, exclusive, agentic traits. The two state of the art gender bias detection services in existence today, Textio and Unitive, are based on these lists. Textio and Unitive charge a non-trivial fee for access to their services. Tang et al. (2017) have devised an algorithm that accurately mimicks the services.
 
-One potential problem with the gendered list-based approach is that gender stereotypes evolve over time (Donnelly & Twenge 2017). Lists must therefore be continually updated in order to accurately reflect biases embedded in today's language. Ideally, list updates would be done periodically through new surveys--an expensive and time consuming process. Less ideally, lists might be modified by their curators or "experts", introducing a regrettable degre of arbitrariness and subjective bias into the method. Given the proprietary nature of the Textio/Unitive business model, we cannot know if/how these companies update their lists. This lack of transparency is itself a further drawback of the list-based approach.
+## Problems with current methods
 
-## Proposed solution
-In this kernel, I propose a new, transparent, list-free, self-updating semantic bias detection method. I say "semantic bias detection" instead of "gender bias detection" because the proposed method can be applied to any set of user-defined semantic poles, not just "feminine-masculine". (Towards the end of the kernel I will discuss application to detection of racial bias.) The semantic poles can be defined by as few or as many words as the user would like.
+There are a few problems with the gendered list-based approach. One of these is that gender stereotypes evolve over time. Female job applicants today do not necessarily identify with lists of traits identified two decades ago (Donnelly & Twenge 2017). In order to accurately reflect biases embedded in today's language, lists must therefore be continually updated. Ideally, such updates would be based on new, periodic surveys--an expensive and time consuming process. Less ideally, lists might be modified by their curators or "experts", introducing a regrettable degre of arbitrariness and subjective bias into the method. Given the proprietary, confidential nature of the Textio/Unitive business model, we cannot know if/how these companies update their lists. This lack of transparency is itself a further drawback of the list-based approach.
 
-The proposed method is self-updating because it is based on the Corpus of Contemporary American English (COCA, 2018), which is continually updated to accurately reflect current common American English usage across academic, magazine, news, fiction, and spoken texts. The proposed method functions by converting each word in the COCA into a vector (via Google's word2vec function). The numbers in each word's vector effectively encode the "semantic position" of the word with respect to every other word in the corpus, allowing words to be added and subtracted, as in the following classic example:
+## Proposed solution: COCA-based semantic bias detection
 
-$$
-\mathrm{vector}(queen) \approx  \mathrm{vector}(king) - \mathrm{vector}(man) + \mathrm{vector}(woman)
-$$
+In this kernel, I propose a new gender bias detection method that is transparent, list-free, self-updating, and free of charge. It can also be used to detect racial bias, or bias with respect to any two user-defined "semantic poles". Semantic poles can be defined by as few or as many words as the user would like. In the case of gender bias detection, the poles might be defined by "feminine", "communal", "inclusive" on the one hand, and "masculine", "dominant", "exclusive", on the other. (Curated lists can thus inform the definition of semantic poles, but the prposed method is not dependent on such lists.)
 
-Words can also be averaged. When the user defines a semantic pole by more than one word, the pole represents the average of these words. For example, say the user defines the feminine semantic pole ($\mathbf{w}_f$) by the words "female", "feminine", "communal", and "inclusive". Then in vector notation this is represented
-$$
-\mathbf{w}_f = \frac{1}{4}(\mathbf{w}_{female} + \mathbf{w}_{feminine}+\mathbf{w}_{communal}+\mathbf{w}_{inclusive})
+Instead of lists, the proposed method is based on the Corpus of Contemporary American English (COCA, 2018), which is continually updated to accurately reflect current common American English usage across academic, magazine, news, fiction, and spoken texts. The COCA is taken as the semantic baseline, and then a job bulletin's (or any given text's) semantic alignment with respect to the user-defined poles is measured against this baseline.
+
+This is achieved by first converting words to vectors via Google's word2vec function. Word vectors effectively encode the "semantic position" of the word with respect to every other word in the corpus, allowing words to be added and subtracted, as in the following classic example:
 
 $$
-By contrast, the masculine semantic pole might be defined
+\mathbf{w}_{queen} \approx  \mathbf{w}_{king} - \mathbf{w}_{man} + \mathbf{w}_{woman}
+$$
+where $\mathbf{w}_{xyz}$ represents the vector of the word "xyz".
+
+Words can also be averaged. When the user defines a semantic pole by more than one word, the pole is defined as the average of these word vectors. For example, if $\mathbf{w}_f$ represents the feminine semantic pole mentioned above then
+$$
+\mathbf{w}_f = \frac{1}{3}(\mathbf{w}_{feminine}+\mathbf{w}_{communal}+\mathbf{w}_{inclusive})
 
 $$
-\mathbf{w}_m = \frac{1}{4}(\mathbf{w}_{male} + \mathbf{w}_{masculine}+\mathbf{w}_{dominant}+\mathbf{w}_{exclusive})
+By contrast, the masculine semantic pole would be defined
+
+$$
+\mathbf{w}_m = \frac{1}{3}(\mathbf{w}_{masculine}+\mathbf{w}_{dominant}+\mathbf{w}_{exclusive})
 
 $$
 Let the average word of an entire job bulletin be defined
@@ -54,28 +60,35 @@ $$
 \cos(\theta(\mathbf{w}_x,\mathbf{w}_y)) = \frac{\mathbf{w}_x\cdot\mathbf{w}_y}{\|\mathbf{w}_x\|\|\mathbf{w}_y\|}
 $$
 
-## Results
+## Summary of results
 
-Using this method, I find that bulletin texts are mostly masculine aligned, with feminine semantic alignment scores less than zero. The highest feminine semantic alignment scores correspond to lower paying, junior level job classes (including clerical and nursing roles), while the lowest feminine alignment scores (you could also say the highest masculine semantic alignment scores) correspond to higher paying, senior level or supervisory job classes. The difference in pay is less pronouned for Department of Water and Power salaries.
+Most bulletin feminine semantic alignment scores are less than zero, indicating predominantly masculine alignment.
 
-In a regression analysis, I find a roughly 1 percent decrease in entry salary per marginal increase in the feminine semantic alignment score. Word count and sentence count also bear a statistically significant relation to the alignment score. Higher word counts are associated with higher masculine alignment, while higher sentence counts are associated with higher feminine alignment. This suggests that shorter job bulletins and/or shorter sentences (i.e., the same information broken up into more sentences) may attract more female applicants.
+Moreover, the highest feminine semantic alignment scores correspond to lower paying, junior level job classes (including clerical and nursing roles), while the lowest feminine alignment scores (you could also say the highest masculine semantic alignment scores) correspond to higher paying, senior level or supervisory job classes. The difference in pay is less pronouned for Department of Water and Power salaries.
 
-## Kernel organization
+In regression analysis, I find a roughly 1 percent decrease in entry salary per marginal increase in the feminine semantic alignment score $(p<0.001)$ . Word count and sentence count also bear a statistically significant relation to the alignment score. Higher word counts are associated with higher masculine alignment, while higher sentence counts are associated with higher feminine alignment, suggesting that shorter job bulletins and/or shorter sentences (i.e., the same information broken up into more sentences) may attract more female applicants.
+
+## Kernel section organization
  
 1) Data cleaning
 2) Job class and data dictionary files with the information requested by LA City
-3) Semantic alignment analysis using the method briefly introduced above
-References
+3) Semantic alignment analysis of LA City job bulletins
 
-Required libraries, functions, and folders, load/define yourselves!
+Load/define required libraries, functions, and folders.
 
 
 ```{r}
 options(warn = -1, message = FALSE)
 #======================================================
-bulletins_folder <- "../input/data-science-for-good-city-of-los-angeles/cityofla/CityofLA/Job Bulletins/"
-COCA_folder <- "../input/coca-corpus-sample-as-single-file/"
-output_folder <- "/kaggle/working/"
+# bulletins_folder <- "../input/data-science-for-good-city-of-los-angeles/cityofla/CityofLA/Job Bulletins/"
+# COCA_folder <- "../input/coca-corpus-sample-as-single-file/"
+# output_folder <- "/kaggle/working/"
+#dir <- "D:/OneDrive - CGIAR/Documents/kaggle/CityofLA/"
+dir <- "CityofLA/"
+bulletins_folder <- paste0(dir, "Job Bulletins/")
+COCA_folder <- dir
+output_folder <- dir
+
 #======================================================
 # Required libraries, load yourselves!
 pkgs <- c("tidyverse", "tidytext", "tm", "tokenizers", "rword2vec", "readr", "kableExtra")
@@ -816,31 +829,29 @@ Yes, the "Vocational Worker  DEPARTMENT OF PUBLIC WORKS.txt" bulletin has no job
 special_case <- "Vocational Worker  DEPARTMENT OF PUBLIC WORKS.txt"
 ind_rm <- which(file_names == special_case)
 file_names <- file_names[-ind_rm]
-kable(paste("Number of bulletins after cleaning: ", length(file_names)))
+print(paste("Number of bulletins after cleaning: ", length(file_names)))
 ```
-#======================================================
 # 2) RETRIEVING SPECIFIC INFO FROM BULLETINS
-Our strategy for retrieving info from the bulletins is to break the bulletin up into sections according to its ALL CAPS headings. These headings vary somewhat across bulletins in spelling, spacing, order of appearance, and such; but there is enough consistency to build a script off of.
+My strategy for retrieving info from the bulletins is to break the bulletin up into sections according to its ALL CAPS headings. These headings vary somewhat across bulletins in spelling, spacing, order of appearance, and such; but there is enough consistency to build a script off of.
 
-The example output file kindly provided by the host indicates that each row should be assigned to each job (sub-)requirement. After long deliberation, we have decided to go with a simpler one-row-per-bulletin output format.
+The example output file kindly provided by the host indicates that each row should be assigned to each job (sub-)requirement. After long deliberation, I decided to go with a simpler one-row-per-bulletin output format.
 
-This is because we find the job requirements information in the bulletins to be presented in a way that is often inconsistent with the format proposed by the host.
+This is because the job requirements information in the bulletins is presented in a way that is often inconsistent with the format proposed by the host.
 
-In particular, the host's format presumes "and/or" logic gates at the end of each requirement. This is true for some bulletins, but many, if not most, bulletins also have and/or logic gates occurring within each (sub-)requirement, effectively creating an additional level of nesting not addressed by the host's output format.
+In particular, the host's format presumes "and/or" logic gates at the end of each (sub-)requirement. This is true for some bulletins, but many, if not most, bulletins also have and/or logic gates occurring within each (sub-)requirement, effectively creating an additional level of nesting not addressed by the host's output format.
  
 The one-row-per-bulletin format is a stopgap measure pending clarification or homogenization of these bulletin formatting issues. It also facilitates subsequent manipulation of the data for the diversity analysis.
  
-Under EXP_JOB_CLASS_TITLE, multiple job experience requirements are separated by "|". The corresponding info under EXP_LENGTH, FULL_TIME_PART_TIME, EXP_JOB_CLASS_TITLE, and JOB_CLASS_FUNCTION, is likewise separated by "|". (The "|" does not necessarily mean "or".)
+Given this one-row-per-bulletin format, under EXP_JOB_CLASS_TITLE, multiple job experience requirements are separated by "|". The corresponding info under EXP_LENGTH, FULL_TIME_PART_TIME, EXP_JOB_CLASS_TITLE, and JOB_CLASS_FUNCTION, is likewise separated by "|". (The "|" does not necessarily mean "or".)
 
 # CHANGES TO THE DATA DICTIONARY
 
-We thought it would be interesting to compare salary levels to some measure of semantic gender/race diversity in the bulletin text. In order to do this, we have created many new salary variables (mean, max, min, and coefficient of variation for GEN and DWP salary ranges and flat rates). We modify the data dictionary accordingly.
+I thought it would be interesting to compare salary levels to some measure of semantic gender/race diversity in the bulletin text. In order to do this, we have created many new salary variables (mean, max, min, and coefficient of variation for GEN and DWP salary ranges and flat rates). We modify the data dictionary accordingly.
  
 The bulletins contain a lot of boiler plate text that doesn't vary much from one bulletin to another. To reduce noise as much as possible in our diversity analysis farther below, we conduct our analysis only over the text that is unique to each bulletin. The unique text seems to be contained in the REQUIREMENTS, DUTIES, PROCESS NOTES, and, occassionally, SELECTION PROCESS and SELECTIVE CRITERIA sections of the bulletins. These sections are thus retained in the output file for each bulletin.
 
 We also add the word and sentence counts for each of these sections to the file, as well as the word count devided by the sentence count. We also calculate the total for all sections.
 
-#======================================================
 ```{r}
 list_df_outputFile <- map(file_names, parse_bulletin, bulletins_folder)
 df_outputFile <- do.call(rbind, list_df_outputFile)
@@ -862,6 +873,8 @@ write.csv(df_outputFile, output_file_path)
 
 ```
 # 3) Semantic alignment analysis of LA City job bulletins
+
+Due to inherent randomness in the word2vec function, the word vectors and hence the results of subsequent regression analysis vary slightly from one fitting to another. However, results are consistent within a small tolerance.
 
 To our knowledge, no one has yet attempted an analogous assessment of semantic alignment with race. This may very well be because a direct translation
 of the curated list approach to the race setting quickly runs into controversial territory. It is acceptable to talk about masculine and feminine attributes, but
@@ -927,7 +940,7 @@ processCorpus <- function (corpus)
   return (corpus)
 }
 ```
-Paste the main bulletin text sections into single string for comparison against the COCA
+Paste the main bulletin text sections into single string for comparison against the COCA.
 ```{r} 
 df <- df_outputFile
 df$Str <- paste(df$Duties, df$Requirements)
@@ -935,9 +948,10 @@ df$Str <- paste(df$Str, df$Process_Notes)
 df$Str <- paste(df$Str, df$Selection_Process)
 
 ```
-Prepare bulletins and COCA for analysis (remove spaces, punctuation, URLs, stop words, etc.).
+Prepare bulletins and COCA for analysis (remove spaces, numbers, punctuation, URLs, stop words, etc.).
 
 ```{r}
+options(warn = -1, message = FALSE)
 
 bulletin_corpus <- Corpus(VectorSource(df$Str))
 bulletin_corpus <- processCorpus(bulletin_corpus)
@@ -950,6 +964,7 @@ COCA_corpus <- processCorpus(COCA_corpus)
 COCA_file_path <- paste0(output_folder, "COCA_corp.txt")
 write.table(COCA_corpus$content, COCA_file_path, sep = "\t")
 wordvec_length <- 200
+set.seed(1234)
 model <- word2vec(layer1_size = wordvec_length, train_file = COCA_file_path, output_file = "vec.bin", binary = 1, num_threads = 128)
 bin_to_txt("vec.bin", "vector.txt")
 df_wordVecs <- as.data.frame(read_delim("vector.txt", 
@@ -971,15 +986,28 @@ masc_semantic_vec <- get_average_wordVector(masculine_semantic_pole, df_wordVecs
 
 list_semantic_poles <- list(fem_semantic_vec, masc_semantic_vec)
 
+
+# set.seed(1234)
+# ind_sample <- sample(1:length(COCA_corpus), 50)
+# #print(ind_sample)
+# COCA_sample <- COCA_corpus$content[ind_sample]
+# 
+# outlist <- map(COCA_sample, semantic_alignment, df_wordVecs, list_semantic_poles)
+# fem_semanticAlignment_score <- do.call(c, outlist)
+# hist(fem_semanticAlignment_score)
+
+
+
 outlist <- map(bulletin_corpus$content, semantic_alignment, df_wordVecs, list_semantic_poles)
 fem_semanticAlignment_score <- do.call(c, outlist)
 
-#set.seed(1234)
-#ind_sample <- sample(1:length(COCA_corpus), 10)
-#COCA_sample <- COCA_corpus$content[ind_sample]
-#fem_semanticAlignment_score_COCA <- 
   
-hist(fem_semanticAlignment_score)
+df$fem_semanticAlign_score <- fem_semanticAlignment_score
+gg <- ggplot(df, aes(x = fem_semanticAlign_score))
+gg <- gg + geom_histogram(color = "magenta", fill = "cyan")
+gg <- gg + xlab("Feminine semantic alignment score")
+gg
+
 
 q <- quantile(fem_semanticAlignment_score, probs = 0.95)
 ind_top <- which(fem_semanticAlignment_score > as.numeric(q))
@@ -1025,8 +1053,6 @@ df$FILE_NAME[which(is.infinite(u))]
 df$log_num_words <- log(df$num_words_total)
 df$log_num_sents <- log(df$num_sents_total)
 #df$log_word_per_sent <- log(df$num_words_total / df$num_sents_total)
-#----------------------------------------------------
-df$fem_semanticAlign_score <- fem_semanticAlignment_score
 #------------------------------------------------------
 mod <- lm(fem_semanticAlign_score ~ log_salary_max_DWPandGEN +
             log_num_words + log_num_sents, df)
@@ -1035,7 +1061,6 @@ m_table <- tidy(mod)
 kable(m_table, "html") %>%
   kable_styling(bootstrap_options = c("striped", "hover", "responsive"))
 
-#======================================================
 ```
 The coefficients are all significant, with p values essentially at zero.
 
@@ -1045,9 +1070,65 @@ The output here thus means that marginal increments in a job bulletin's feminine
 
 (Let that sink in.)
  
-Note also that marginal increments in the feminine semantic alignment are associated with about a 2%-3% decrease in the word count, but also a 1%-2% increase in the number of sentences in the bulletin. Higher feminine semantic alignment is associated with lower words per sentence. Several bulletins contain extremely long sentences consisting of long lists of duties/requirements separated by commas and/or semicolons. The results here suggest that those long lists are correlated with masculine semantic alignment and higher salaries.
+Note also that marginal increments in the feminine semantic alignment are associated with about a 2%-3% decrease in the word count, but also a 1%-2% increase in the number of sentences in the bulletin. Higher feminine semantic alignment is associated with lower words per sentence. Several bulletins contain extremely long sentences consisting of long lists of duties/requirements separated by semicolons. The results here suggest that those long lists are correlated with masculine semantic alignment and higher salaries.
+
+```{r}
+# file_path <- paste0(dir, "Job_Applicants_by_Gender_and_Ethnicity.csv")
+# df_racialDiversity <- read.csv(file_path,
+#                                stringsAsFactors = F)
+# df_racialDiversity$Job.Number <- gsub("(\\d{4}).*", "\\1", df_racialDiversity$Job.Number)
+# df_racialDiversity$Job.Number <- gsub("[A-Z][a-z]", "", df_racialDiversity$Job.Number)
+# df_racialDiversity$Job.Number <- str_trim(df_racialDiversity$Job.Number)
+# df_share <- as.data.frame((df_racialDiversity[, 5:13] / df_racialDiversity$Apps.Received))
+# 
+# colnames(df_share) <- paste0(colnames(df_racialDiversity[, 5:13]), "_share")
+# list_ind_inf <- apply(df_share, 2, function(x) which(is.infinite(x)))
+# for(i in 1:ncol(df_share)){
+#   df_share[list_ind_inf[[i]], i] <- 0
+#   # df_log[list_ind_nan[[i]], i] <- 0
+#   # df_log[list_ind_na[[i]], i] <- 0
+# }
+# 
+# # df_log <- as.data.frame(apply(df_racialDiversity[, 5:13], 2, log))
+# # list_ind_inf <- apply(df_log, 2, function(x) which(is.infinite(x)))
+# # # list_ind_nan <- apply(df_log, 2, function(x) which(is.nan(x)))
+# # # list_ind_na <- apply(df_log, 2, function(x) which(is.na(x)))
+# # for(i in 1:ncol(df_log)){
+# #   df_log[list_ind_inf[[i]], i] <- 0
+# #   # df_log[list_ind_nan[[i]], i] <- 0
+# #   # df_log[list_ind_na[[i]], i] <- 0
+# # }
+# # colnames(df_log) <- paste0("log_", colnames(df_racialDiversity)[5:13])
+# # df_racialDiversity <- cbind(df_racialDiversity, df_log)
+# df_racialDiversity <- cbind(df_racialDiversity, df_share)
+# colnames(df_racialDiversity)[2] <- "JOB_CLASS_NO"
+# df_racialDiversity <- merge(df_racialDiversity, df, by = "JOB_CLASS_NO")
+# # nrow(df_racialDiversity)
+# # ind_rm <- which(df_racialDiversity$lmin_entry_salaries_all_DWPandGEN < 5)
+# # df_racialDiversity <- df_racialDiversity[-ind_rm, ]
+# ind_rm <- which(df$log_salary_min_DWPandGEN < 7)
+# df_plot <- df_racialDiversity[-ind_rm,]
+# gg <- ggplot(df_plot, aes(x = Female_share, y = log_salary_min_DWPandGEN))
+# gg <- gg + geom_point()
+# gg
+# 
+# df_racialDiversity$Asian2 <- as.numeric(df_racialDiversity$Asian + df_racialDiversity$Filipino)
+# df_racialDiversity$lAsian2 <- (df_racialDiversity$Asian2 / df_racialDiversity$Apps.Received)
+# u <- df_racialDiversity$lAsian2
+# df_racialDiversity$lAsian2[which(is.infinite(u))] <- 0
+# 
+# df_racialDiversity$
+# df_racialDiversity$fem_semanticAlign_score
+# mod <- lm(log_salary_min_DWPandGEN ~ salary_cvLo_DWPandGEN +
+#             Hispanic_share + Asian2 + Caucasian_share, df_racialDiversity)
+# summary(mod)
+# 
+# 
+# mod <- lm(Female_share ~ salary_meanLo_DWPandGEN, df_racialDiversity)
+# summary(mod)
 
 
+```
 ## References
 
 Askehave, I., & Zethsen, K. K. (2014). Gendered Constructions of Leadership in D anish Job Advertisements. Gender, Work & Organization, 21(6), 531-545.
