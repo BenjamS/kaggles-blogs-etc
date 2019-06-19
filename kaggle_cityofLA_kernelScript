@@ -1,5 +1,5 @@
 ---
-title: "A new method for detecting gender/racial semantic alignment in job announcement texts"
+title: "A corpus-based method for detecting gender/racial semantic alignment in job announcement texts"
 author: "BenjS"
 date: "June 19, 2019"
 output: html_document
@@ -74,13 +74,18 @@ Word count and sentence count bear a statistically significant relation to the a
 
 The kernel is organized as follows:
 
-1) Data cleaning
-2) Parsing of bulletins to retrieve the job class information requested by LA City, plus additional salary information not requested but useful. Generation of output .csv file containing this information, as well as an extended data dictionary .csv file documenting the new variables I have added.
-3) Gender semantic alignment analysis of LA City job bulletins
-4) Racial semantic alignment analysis of LA City job bulletins
+1 Data cleaning
+2 Retrieving information from the job bulletins, generating the job class .csv output file, and extending the data dictionary
+2.1 New fields added to the output file
+2.1.1 New salary fields
+2.1.2 Word/sentence counts, unique text fields
+2.3 Missing output fields
+2.4 Here we go
+3 Semantic alignment analysis of LA City job bulletins
+3.1 Assessment of feminine/masculine semantic alignment
+3.2 Assessment of racial semantic alignment
 
 To get started, below I load/define required libraries and folders. I also define the many functions needed to retrieve information from the job bulletins.
-
 
 ```{r}
 options(warn = -1, message = FALSE)
@@ -202,7 +207,7 @@ convert_writNum_to_digits <- function(writNum){
 }
 
 
-# Get required experience job title
+# Get required experience job title (EXP_JOB_CLASS_TITLE)
 get_expJobClassTitle <- function(experience_requirement, pattern_jobTitle, pattern_jobTitle_trimPunct, stopWords){
   xx_jobTitle <- gsub(pattern_jobTitle, "\\2", experience_requirement, ignore.case = T)
   if(length(xx_jobTitle) != 0){
@@ -280,7 +285,7 @@ get_reqJobExpInfo <- function(str_Requirements,
   #===================================================
   # EXTRACT REQUIRED JOB EXPERIENCE INFO
   # (EXP_LENGTH, FULL_TIME_PART_TIME, EXP_JOB_CLASS_TITLE,
-  # JOB_CLASS_FUNCTION)
+  # EXP_JOB_CLASS_FUNCTION)
   # Retain only the requirements having to do with job experience
   ind_jobExp <- grep("experience", req_vec)
   req_jobExp_vec <- req_vec[ind_jobExp]
@@ -451,6 +456,7 @@ get_salaries <- function(str_annSalary){
 #file_name <- "ADVANCE PRACTICE PROVIDER CORRECTIONAL CARE 2325 020808 REV 111214.txt"
 #file_name <- "HELICOPTER MECHANIC 3742 072206 REV 020818.txt"                        
 #file_name <- "POLICE COMMANDER 2251 092917.txt"
+#file_path <- bulletins_folder
 parse_bulletin <- function(file_name, file_path){
   print(file_name)
   bulletin_lines <- get_bulletinLines(file_name, file_path, quietly = T)
@@ -529,39 +535,34 @@ parse_bulletin <- function(file_name, file_path){
   # DRIVERS_LICENCE_REQ
   license_pattern_P <- "may require a valid California driver's license"
   license_pattern_R <- "driver's license is required"
-  ind_license_P <- grep(license_pattern_R, bulletin_lines)
-  ind_license_R <- grep(license_pattern_M, bulletin_lines)
-  if(length(ind_license_P) != 0){drivers_license_req <- P}
-  if(length(ind_license_R) != 0){drivers_license_req <- R}
+  ind_license_P <- grep(license_pattern_R, bulletin_lines, ignore.case = T)
+  ind_license_R <- grep(license_pattern_R, bulletin_lines, ignore.case = T)
+  if(length(ind_license_P) != 0){drivers_license_req <- "P"}
+  if(length(ind_license_R) != 0){drivers_license_req <- "R"}
   if(length(ind_license_R) == 0 & length(ind_license_P) == 0){drivers_license_req <- NA}
   #---------------------------------------------
   # EDUCATION_YEARS, SCHOOL_TYPE
-  # (Very rudimentary)
-  educYrs_pattern <- "four-year"
+  educYrs_pattern <- "four-year|Bachelor's degree"
   educSchool_pattern <- "college|university"
-  ind_educYrs <- grep(educYrs_pattern, bulletin_lines)
-  ind_educSchool <- grep(educSchool_pattern, bulletin_lines)
-  if(length(ind_educYrs) != 0 & ind_educSchool != 0){
-    if(ind_educYrs == ind_educSchool){
-      education_years <- 4
-      school_type <- educSchool_pattern
-    }
+  ind_educYrs <- grep(educYrs_pattern, bulletin_lines, ignore.case = T)
+  ind_educSchool <- grep(educSchool_pattern, bulletin_lines, ignore.case = T)
+  if(length(ind_educYrs) != 0){education_years <- 4}else{education_years <- NA}
+  if(length(ind_educSchool) != 0){
+  school_type <- educSchool_pattern
   }else{
-    educSchool_pattern <- "apprenticeship"
-    ind_educSchool <- grep(educSchool_pattern, bulletin_lines)
+        educSchool_pattern <- "apprenticeship"
+    ind_educSchool <- grep(educSchool_pattern, bulletin_lines, ignore.case = T)
     if(length(ind_educSchool) != 0){
       school_type <- educSchool_pattern
-      education_years <- NA
     }else{
       educSchool_pattern <- "high school"
-      ind_educSchool <- grep(educSchool_pattern, bulletin_lines)
+      ind_educSchool <- grep(educSchool_pattern, bulletin_lines, ignore.case = T)
       if(length(ind_educSchool) != 0){
         school_type <- educSchool_pattern
-        education_years <- NA
+      }else{
+          school_type <- NA
       }
-      
-    }
-    
+  }
   }
   #---------------------------------------------
   # EXAM_TYPE
@@ -678,7 +679,7 @@ parse_bulletin <- function(file_name, file_path){
                        DRIVERS_LICENSE_REQ = drivers_license_req,
                        EDUCATION_YEARS = education_years,
                        SCHOOL_TYPE = school_type,
-                       EDUCATUION_MAJOR = "",
+                       EDUCATION_MAJOR = "",
                        EXP_JOB_CLASS_ALT_RESP = "",
                        COURSE_COUNT = "",
                        COURSE_LENGTH = "",
@@ -908,14 +909,15 @@ print(paste("Number of bulletins after cleaning: ", length(file_names)))
 
 There are 677 bulletins left after cleaning.
 
-# 2 Retrieving information from the job bulletins and generating the job class .csv output file
+# 2 Retrieving information from the job bulletins, generating the job class .csv output file, and extending the data dictionary
+
 My strategy for retrieving info from the bulletins is to break the bulletin up into sections according to its ALL CAPS headings. These headings vary somewhat across bulletins in spelling, spacing, order of appearance, and such; but there is enough consistency to build a script off of. The functions defined for this task were defined at the end of the Introduction.
 
 The example output file kindly provided by the host indicates that each row should be assigned to each job (sub-)requirement. However, in discussion threads the Kaggle monitor also made clear that contestants "are free to represent the data in whatever way [we] think is most helpful so long as [we] describe our method in the accompanying data dictionary and documentation". After long deliberation, I decided to go with a one-row-per-bulletin output format.
 
 This is because the job requirements information in the bulletins is presented in a way that is often inconsistent with the format proposed by the host.
 
-In particular, the host's format presumes "and/or" logic gates at the end of each (sub-)requirement. This is true for some bulletins, but many, if not most, bulletins also have and/or logic gates occurring within each (sub-)requirement, effectively creating an additional level of nesting not addressed by the host's output format.
+In particular, the host's format presumes "and/or" logic gates at the end of each (sub-)requirement. This is true for some bulletins, but many bulletins also have and/or logic gates occurring within each (sub-)requirement, effectively creating an additional level of nesting not addressed by the host's output format.
 
 The one-row-per-bulletin format is a stopgap measure pending clarification or homogenization of these bulletin formatting issues. It also facilitates subsequent manipulation of the data for the diversity analysis.
 
@@ -925,7 +927,7 @@ Given this one-row-per-bulletin format, under EXP_JOB_CLASS_TITLE, multiple job 
 
 I have added several new fields to the job class .csv file.
 
-### 2.1.1 Salary fields
+### 2.1.1 New salary fields
 
 Most job bulletins indicate multiple entry salaries, some of which are ranges and some of which are flat-rated. I developed code to parse through this information and:
 
@@ -937,7 +939,7 @@ Most job bulletins indicate multiple entry salaries, some of which are ranges an
 
 This is done for GEN and DWP separately, and also for GEN and DWP together.
 
-### 2.1.2 Word/sentence counts in unique text
+### 2.1.2 Word/sentence counts, unique text fields
 
 The bulletins contain a lot of "boiler plate" text that doesn't vary much from one bulletin to another. To reduce noise as much as possible in our diversity analysis farther below, we conduct our analysis only over the text that is unique to each bulletin. The unique text seems to be contained in the REQUIREMENTS, DUTIES, PROCESS NOTES, and, occassionally, SELECTION PROCESS sections of the bulletins. These sections are thus retained in the output file for each bulletin. We also include the word and sentence counts for each of these sections, as well as the total word and sentence counts over all of these sections.
 
@@ -947,9 +949,9 @@ I ran out of time before I could develop code to extract the following requested
 
 EDUCATUION_MAJOR, EXP_JOB_CLASS_ALT_RESP, COURSE_COUNT, COURSE_LENGTH, COURSE_SUBJECT, MISC_COURSE_DETAILS, DRIV_LIC_TYPE, ADDTL_LIC
 
-## 2.4 The code
+## 2.4 Here we go
 
-In the following code, I a) extract the bulletin information into a data frame, b) write the data frame to a job class information, c) create a data dictionary for the new fields I created, d) import the kaggle data dictionary and append it with the new fields data dictionary.
+In the following code, I 1) extract the bulletin information into a data frame, 2) write the data frame to a job class information, 3) create a data dictionary for the new fields I created, and 4) import the kaggle data dictionary and append it with the new fields data dictionary.
 
 Most of the work in the lines below is being done by the functions defined at the end of the Introduction above.
 
@@ -1144,9 +1146,11 @@ write.csv(df_dataDictionary, output_file_path)
 
 # 3) Semantic alignment analysis of LA City job bulletins
 
-Now that the job class information has been extracted, it's time to put it to use.
+Now that the job class information has been extracted from the bulletins, it's time to put it to use.
 
-Below I assess the feminine/masculine semantic alignment of the bulletin texts. To reduce noise, I focus only on the text unique to each bulletin, generally contained in the Duties, Requirements, Process Notes, and Selection Process sections. 
+## 3.1 Assessing feminine/masculine semantic alignment
+
+Below I assess the feminine/masculine semantic alignment of the bulletin texts. To reduce noise, I focus only on the text unique to each bulletin, generally contained in the Duties, Requirements, Process Notes, and Selection Process sections.
 
 ```{r} 
 df <- df_outputFile
@@ -1164,8 +1168,6 @@ Feminine and masculine semantic poles are defined by taking the average of a num
 
 The COCA used here is a 1.7 million word free sample of the full 560+ million word corpus, which is available for a price (see link in the references for details). Like the full corpus, the free sample used here contains news, magazine, fiction, academic, and spoken transcripts from 1990 to 2017, representing an ample cross section of contemporary American English usage, including, presumably, linguistic embeddings of conceptual gender stereotypes. 
 
-## 3.1 Scoring the feminine/masculine semantic alignment of each bulletin
-
 In the following code, I define functions necessary to conduct this analysis: 1) a function to process the COCA and bulletin texts (stem words, remove numbers, URLS, etc.), 2) a function to take the average of several vectors, 3) a function to find the alignment of a given text with respect given semantic poles.
 
 ```{r}
@@ -1173,55 +1175,52 @@ In the following code, I define functions necessary to conduct this analysis: 1)
 
 # Functions for processing corpora
 removeURL <- function(x) gsub("http:[[:alnum:]]*", "", x)
-processCorpus <- function (corpus)
-{
+processCorpus <- function(corpus, removePunct = T){
   corpus <- tm_map(corpus, content_transformer(removeURL))
   corpus <- tm_map(corpus, content_transformer(tolower))
   corpus <- tm_map(corpus, removeNumbers)
+  if(removePunct){
   corpus <- tm_map(corpus, removePunctuation, preserve_intra_word_dashes = TRUE)
+  }
   corpus <- tm_map(corpus, removeWords, stopwords("english"))
   corpus <- tm_map(corpus, stemDocument, language = "english")
   corpus <- tm_map(corpus, stripWhitespace)
-  corpus <- tm_map(corpus, function (x) {
-    gsub("\\s*(?<!\\B|-)\\d+(?!\\B|-)\\s*", "", x, perl = TRUE) })
-  # corpus <- tm_map(corpus, function (x) {
-  #   gsub("\\s[a-z]{1}\\s", "", x) })
-  # corpus <- tm_map(corpus, stripWhitespace)
   corpus <- tm_map(corpus, str_trim)
   return (corpus)
 }
 
-# Function to get average of all word vectors in a bulletin
+# Function to get average word vector
 get_average_wordVector <- function(this_semantic_pole, df_wordVecs){
   ind_these_wordVecs <- which(df_wordVecs$Word %in% this_semantic_pole)
   df_these_wordVecs <- df_wordVecs[ind_these_wordVecs, -1]
   average_semantic_vec <- colSums(df_these_wordVecs) / (nrow(df_these_wordVecs) - 1)
+}
 
-# Function to capture position of a word with respect to given "semantic poles" (eg. feminine - masculine)
-semantic_alignment <- function(txt_to_assess, df_wordVecs, list_semantic_poles){
+# Function to capture position of a word vector with respect to given semantic poles (eg. feminine - masculine)
+semantic_alignment <- function(txt_to_assess, df_wordVecs, list_semantic_poles, single_word = F, quietly = T){
   
   general_vocab <- df_wordVecs$Word
-  bulletin_vocab <- unlist(str_split(txt_to_assess, " "))
-  # ind_keep <- which(this_vocab %in% general_vocab)
-  # this_vocab <- this_vocab[ind_keep]
-  
-  ind_bulletin_vocab <- which(general_vocab %in% bulletin_vocab)
-  df_bulletin_vecs <- df_wordVecs[ind_bulletin_vocab, -1]
-  bulletinVec <- colSums(df_bulletin_vecs) / (nrow(df_bulletin_vecs) - 1)
+  if(!single_word){txt_vocab <- unlist(str_split(txt_to_assess, " "))}else{txt_vocab <- txt_to_assess}
+  ind_txt_vocab <- which(general_vocab %in% txt_vocab)
+  df_txt_vecs <- df_wordVecs[ind_txt_vocab, -1]
+  if(!single_word){txtVec <- colSums(df_txt_vecs) / (nrow(df_txt_vecs) - 1)}else{txtVec <- as.numeric(df_txt_vecs)}
   
   pole_1_vec <- list_semantic_poles[[1]]
   pole_2_vec <- list_semantic_poles[[2]]
   
-  semantic_alignment_pole_1 <- as.numeric(lsa::cosine(bulletinVec, pole_1_vec))
-  semantic_alignment_pole_2 <- as.numeric(lsa::cosine(bulletinVec, pole_2_vec))
+  semantic_alignment_pole_1 <- as.numeric(lsa::cosine(txtVec, pole_1_vec))
+  semantic_alignment_pole_2 <- as.numeric(lsa::cosine(txtVec, pole_2_vec))
   
   semantic_score <- semantic_alignment_pole_1 - semantic_alignment_pole_2
-  #print(paste("semantic score: ", semantic_score))
+  if(quietly == F){
+      print(paste("semantic score: ", semantic_score))
+  }
   return(semantic_score)
 }
-}
+
 
 ```
+
 
 Next, I prepare bulletins and COCA for analysis (stem words, remove spaces, numbers, punctuation, URLs, stop words, etc.).
 
@@ -1251,19 +1250,14 @@ model <- word2vec(layer1_size = wordvec_length, train_file = COCA_file_path, out
 
 Once the word vectors have been fitted, they must be placed into a usable format.
 
-```{r, warn = -1}
+```{r}
 
+options(warn = -1, message = FALSE)
 bin_to_txt("vec.bin", "vector.txt")
 df_wordVecs <- as.data.frame(read_delim("vector.txt", 
                                         skip = 1, delim = " ",
                                         col_names = c("Word", paste0("E", 1:wordvec_length))))
 df_wordVecs <- df_wordVecs[-nrow(df_wordVecs), ]
-# global_vocab <- df_wordVecs$Word
-# #length(global_vocab)
-# class(df_wordVecs$Word)
-# grep("white", global_vocab)
-# global_vocab[grep("hind", global_vocab)]
-# distance(file_name = "vec.bin", search_word = "african-american", num = 10)
 
 ```
 
@@ -1292,7 +1286,8 @@ fem_semanticAlignment_score <- do.call(c, outlist)
 Let's look at a histogram of the bulletin feminine semantic alignment scores.
 
 ```{r}
-
+length(fem_semanticAlignment_score)
+nrow(df)
 df$fem_semanticAlign_score <- fem_semanticAlignment_score
 gg <- ggplot(df, aes(x = fem_semanticAlign_score))
 gg <- gg + geom_histogram(color = "magenta", fill = "cyan")
@@ -1300,7 +1295,7 @@ gg <- gg + xlab("Feminine semantic alignment score")
 gg
 
 ```
-We see that the bulk of the bulletins are in masculine alignment territory, with a thin tail stretching into feminine alignment territory.
+The bulk of the bulletins are concentrated at the lower end of the feminine alignment score, with a thin tail stretching into feminine alignment territory.
 
 What are the job classes with the highest feminine semantic alignment? Below I extract those with scores above the 95th percentile.
 
@@ -1338,7 +1333,6 @@ mean(df$salary_min_GEN[ind_top], na.rm = T)
 mean(df$salary_min_GEN[ind_bottom], na.rm = T)
 mean(df$salary_min_DWP[ind_top], na.rm = T)
 mean(df$salary_min_DWP[ind_bottom], na.rm = T)
-)
 
 kable(paste("Mean salary (GEN) of jobs with highest feminine semantic alignment:", mean(df$salary_min_GEN[ind_top], na.rm = T)))
 kable(paste("Mean salary (GEN) of jobs with highest masculine semantic alignment:", mean(df$salary_min_GEN[ind_bottom], na.rm = T)))
@@ -1352,10 +1346,10 @@ There is quite a breach in GEN salaries between the two groups. The job classes 
 This motivates a closer look. Is there a statistically significant relation between the feminine/masculine semantic alignment of bulletin texts and salary levels? To investigate, below I estimate the following model:
 
 $$
-\mathrm{Feminine}\:\:\:\mathrm{Alignment}\:\:\:\mathrm{Score} = \beta_0 + \beta_{\log(\mathrm{Salary})}\log(\mathrm{Salary}) + \beta_{\mathrm{N}\:\:\mathrm{words}}N_{words} + \beta_{N\:\:sent}N_{sent} + \varepsilon
+\mathrm{Feminine}\:\:\mathrm{Alignment}\:\:\mathrm{Score} = \beta_0 + \beta_{\log(\mathrm{Salary})}\log(\mathrm{Salary}) + \beta_{\log(Nwords)}\log(N_{words}) + \beta_{\log(Nsent)}\log(N_{sent}) + \epsilon
 $$
 
-The salary variable in this model corresponds to the maximum salary (flat-rated or scale) indicated in each bulletin.
+where $N_{words}$ and $N_{sent}$ are the word and sentence counts, respectively, of each bulletin's unique text (the Duties, Requirements, Process Notes, and Selection Process sections). The salary variable in this model corresponds to the maximum salary (flat-rated or scale, DWP or GEN) indicated in each bulletin.
 
 ```{r}
 # Take logs for regression model
@@ -1381,7 +1375,7 @@ df$FILE_NAME[which(is.nan(u))]
 df$FILE_NAME[which(is.infinite(u))]
 df$log_num_words <- log(df$num_words_total)
 df$log_num_sents <- log(df$num_sents_total)
-#df$log_word_per_sent <- log(df$num_words_total / df$num_sents_total)
+df$log_words_per_sent <- log(df$num_words_total / df$num_sents_total)
 #------------------------------------------------------
 mod <- lm(fem_semanticAlign_score ~ log_salary_max_DWPandGEN +
             log_num_words + log_num_sents, df)
@@ -1401,13 +1395,181 @@ The regression also reveals a significant relation between feminine semantic ali
 
 I noticed that many bulletins have extremely long sentences enumerating lists of duties or required skills separated by semicolons. The coefficients on the word and sentence count variables in this regression analysis suggest that such sentences may deter female applicants. To attract female applicants, bulletins should not merely be shorter but also more concise, i.e. expressing the same information in fewer words (purged of jargon, and so forth), broken up over more sentences.
 
-## 3.2 Assessing a single bulletin
+## 3.2 Assessing the semantic alignment of a single bulletin in detail
 
-## 3.3 Racial semantic alignment
+The feminine semantic alignment of a single bulletin can be assessed sentence by sentence as follows.
 
-By now it should be getting clearer how the semantic alignment method can be taken beyond gender and applied to other semantic embeddings of cultural stereotypes. The question of racial diversity in the job applicant pool is particularly pressing. It is also particularly vexing, since it is not clear how the conventional list-based method would translate to race. It is acceptable to ellicit and compile lists of gendered traits, but the same cannot be said of racial traits. Historically, efforts to compile such lists have been associated with pathological social and academic movements.
+```{r}
+#------------------------------------------------------------------
+# Select a bulletin to assess in detail
+this_bulletin <- df$Str[234]
+print(df$JOB_CLASS_TITLE[234])
+#------------------------------------------------------------------
+sents_to_assess_char <- unlist(tokenize_sentences(this_bulletin))
+sents_to_assess <- Corpus(VectorSource(sents_to_assess_char))
+sents_to_assess <- processCorpus(sents_to_assess, removePunct = T)
+ind_rm <- which(sents_to_assess$content == "")
+if(length(ind_rm) != 0){sents_to_assess$content <- sents_to_assess$content[-ind_rm]}
+outlist <- map(sents_to_assess$content, semantic_alignment, df_wordVecs, list_semantic_poles)
+fem_semanticAlignment_score <- do.call(c, outlist)
+df_look <- data.frame(Sentence_to_assess = sents_to_assess_char[-ind_rm], Feminine_Semantic_Alignment_Score = fem_semanticAlignment_score)
+kabble(df_look[1:15, ])
 
-The semantic alignment method proposed above might provide a way forward.
+```
+Or, the semantic alignment of a single bulletin can be assessed word by word as follows.
+
+```{r}
+words_to_assess <- Corpus(VectorSource(this_bulletin))
+words_to_assess <- processCorpus(words_to_assess, removePunct = T)
+words_to_assess <- unlist(str_split(words_to_assess, " "))
+outlist <- map(words_to_assess, semantic_alignment, df_wordVecs, list_semantic_poles, single_word = T)
+fem_semanticAlignment_score <- do.call(c, outlist)
+ind_rm <- which(is.na(fem_semanticAlignment_score))
+df_look <- data.frame(Word_to_assess = words_to_assess[-ind_rm], Feminine_Semantic_Alignment_Score = fem_semanticAlignment_score[-ind_rm])
+kabble(df_look[1:15, ])
+
+```
+
+With some front end development, this could be turned into an app with an interface comparable to that of Textio.
+
+
+## 3.2 Assessing racial semantic alignment
+
+It is not clear how the list-based approach to semantic gender alignment assessment might be scaled out to other forms of bias, particularly racial bias. It is acceptable to ellicit, compile, and curate lists of feminine and masculine traits, but any attempt to do the same for racial traits will run into controversey. Historically, attempts to do so have been associated with pathological social and academic movements.
+
+The corpus based method proposed above may provide a way forward. If it is true, as the gender bias literature theorizes, that language embeds and perpetuates gender stereotypes, then it is also probably true that language does the same for racial stereotypes. Instead of elliciting lists of racial traits from surveys, then, why not ellicit them from the corpus?
+
+The rword2vec package provides functions to retrieve semantically "nearby" or analagous words given a user-defined word or group of words. We can thus begin with a crudely defined pole consisting of just a couple words, and then build on it by searching the word vector space for semantic neighbors.
+
+For example, a rudimentary definition for a Latino semantic pole might be something like: "latino", "hispanic", "non-whit", "american". Next, we search for semantic neighbors as follows.
+
+```{r}
+latino_semantic_pole <- c("hispan", "latin", "non-whit", "american")
+df_semantic_neighbors_latino <- word_analogy(file_name = "vec.bin", search_word = paste(latino_semantic_pole, collapse = " "), num = 20)
+kable(df_semantic_neighbors_latino)
+
+```
+This list of semantic neighbors contains some words whose relation to Latino culture may not be clear. But that's ok. We are looking at a linguistic fossil of a cultural stereotype. Fossils often preserve things in messy ways. Also, these unexpected words may reflect unconscious associations.
+
+I augment the Latino semantic pole with the top ten words on the semantic neighbors list.
+
+```{r}
+latino_semantic_pole <- c(latino_semantic_pole, as.character(df_semantic_neighbors_latino$word[1:10]))
+
+```
+Now, the polar opposite of Latino must also be defined. This is less straightforward than defining the semantic opposite of "feminine". The corpus based method requires us to think carefully about what we really mean by "diversity" and "bias". For now I will define the opposite of Latino as all other non-Latino racial groups with a substantial presence in LA. But this should be subjected to careful thought and experimentation.
+
+```{r}
+
+nonLatino_semantic_pole <- c("white", "asian", "african-american", "american")
+df_semantic_neighbors_nonLatino <- word_analogy(file_name = "vec.bin", search_word = paste(nonLatino_semantic_pole, collapse = " "), num = 10)
+kable(df_semantic_neighbors_nonLatino)
+nonLatino_semantic_pole <- c(nonLatino_semantic_pole, as.character(df_semantic_neighbors_nonLatino$word[1:10]))
+
+```
+Next, I numerically define the Latino and non_Latino semantic poles by averaging their respective word vectors.
+
+```{r}
+
+latino_semantic_vec <- get_average_wordVector(latino_semantic_pole, df_wordVecs)
+nonLatino_semantic_vec <- get_average_wordVector(nonLatino_semantic_pole, df_wordVecs)
+
+```
+
+I once again use my semantic_alignment() function, this time to calculate the Latino semantic alignment score of all the job bulletins.
+
+```{r}
+
+list_semantic_poles <- list(latino_semantic_vec, nonLatino_semantic_vec)
+outlist <- map(bulletin_corpus$content, semantic_alignment, df_wordVecs, list_semantic_poles)
+latino_semanticAlignment_score <- do.call(c, outlist)
+
+```
+Now I can conduct the same analysis as I did above for feminine semantic alignment, but this time it is for Latino semantic alignment.
+
+Let's look at a histogram of the bulletin Latino semantic alignment scores.
+
+```{r}
+
+df$latino_semanticAlign_score <- latino_semanticAlignment_score
+gg <- ggplot(df, aes(x = latino_semanticAlign_score))
+gg <- gg + geom_histogram(color = "magenta", fill = "cyan")
+gg <- gg + xlab("Latino semantic alignment score")
+gg
+
+```
+The bulk of the bulletins are concentrated at the upper end of the Latino alignment score, with a thin tail stretching into non-Latino alignment.
+
+What are the job classes with the highest Latino semantic alignment? Below I extract those with scores above the 95th percentile.
+
+```{r}
+this_semanticAlignment_score <- latino_semanticAlignment_score
+q <- quantile(this_semanticAlignment_score, probs = 0.95)
+ind_top <- which(this_semanticAlignment_score > as.numeric(q))
+ind_top_ordered <- ind_top[order(this_semanticAlignment_score[ind_top], decreasing = T)]
+df_look <- data.frame(Jobs_with_highest_Latino_alignment = df$JOB_CLASS_TITLE[ind_top_ordered],
+                      Latino_Alignment_Score = this_semanticAlignment_score[ind_top_ordered])
+kable(df_look)
+
+```
+
+The job classes with the highest Latino semantic alignment scores vary, but a few patterns can be discerned. Some of the jobs are public outreach and communication roles, which makes sense given that Latinos constitute the largest cultural segment in LA. There are some assistant level jobs, but these are outweighed by senior level police or bureaucratic roles.
+
+What job classes have the highest non-Latino semantic alignment? Below I extract those with non-Latino alignment scores above the 95th percentile.
+
+```{r}
+
+q <- quantile(-this_semanticAlignment_score, probs = 0.95)
+ind_bottom <- which(-this_semanticAlignment_score > as.numeric(q))
+ind_bottom_ordered <- ind_bottom[order(this_semanticAlignment_score[ind_bottom], decreasing = F)]
+df_look <- data.frame(Jobs_with_highest_nonLatino_alignment = df$JOB_CLASS_TITLE[ind_bottom_ordered],
+                      nonLatino_Alignment_Score = -this_semanticAlignment_score[ind_bottom_ordered])
+kable(df_look)
+
+```
+
+The job classes with lowest Latino semantic alignment are mostly journeyman jobs. Why might this be?
+
+How do salaries differ between the latino and caucasian aligned job classes?
+
+```{r}
+mean(df$salary_min_GEN[ind_top], na.rm = T)
+mean(df$salary_min_GEN[ind_bottom], na.rm = T)
+mean(df$salary_min_DWP[ind_top], na.rm = T)
+mean(df$salary_min_DWP[ind_bottom], na.rm = T)
+
+kable(paste("Mean salary (GEN) of jobs with highest Latino semantic alignment:", mean(df$salary_min_GEN[ind_top], na.rm = T)))
+kable(paste("Mean salary (GEN) of jobs with lowest Latino semantic alignment:", mean(df$salary_min_GEN[ind_bottom], na.rm = T)))
+
+kable(paste("Mean salary (DWP) of jobs with highest Latino semantic alignment:", mean(df$salary_min_DWP[ind_top], na.rm = T)))
+kable(paste("Mean salary (DWP) of jobs with lowest Latino semantic alignment:", mean(df$salary_min_DWP[ind_bottom], na.rm = T)))
+
+```
+
+There is a considerable salary disparity between the two groups, especially as regards DWP salaries. The job classes with high Latino semantic alignment pay more than jobs with low Latino alignment.
+
+Again, let's take a closer look via regression analysis.
+
+
+
+```{r}
+mod <- lm(latino_semanticAlign_score ~ log_salary_max_DWPandGEN +
+            log_num_words + log_num_sents, df)
+summary(mod)
+m_table <- tidy(mod)
+kable(m_table, "html") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "responsive"))
+
+```
+
+Again, all estimated coefficients are statistically significant.
+
+The coefficients suggest that higher Latino semantic alignment is correlated with higher salaries. The coefficients on the logged word and sentence counts suggest that bulletins with high word counts and long sentences are less semantically aligned with Latinos.
+
+So, why might all this be? Are Latinos more upwardly mobile compared to non-Latinos? Is their emergence into higher payscales a natural result of their cultural predominance in LA?
+
+Unlike gender semantic bias detection, racial semantic bias detection is a new area. The corpus based semantic alignment method proposed above can help us to ask the right questions as we begin to explore it.
+
 
 ```{r}
 rm(model, COCA_file_path, "vec.bin", "vector.txt")
