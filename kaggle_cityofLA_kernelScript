@@ -63,7 +63,7 @@ The negative of the feminine semantic alignment can be interpreted as the mascul
 
 ## Summary of results
 
-The highest feminine semantic alignment scores correspond to lower paying, junior, or assistant level job classes (including social outreach and nursing roles), while the highest masculine alignment scores correspond to higher paying, senior level or supervisory job classes. The mean salary of job classes with high feminine semantic alignment is considerably less than that of job classes with the high masculine semantic alignment. This disparity is more pronounced for DWP salaries than for GEN salaries.
+The highest feminine semantic alignment scores correspond to lower paying, junior, or assistant level job classes (including social outreach and nursing roles), while the highest masculine alignment scores correspond to higher paying, senior level or supervisory job classes. The mean salary of job classes with high feminine semantic alignment is considerably less than that of job classes with the high masculine semantic alignment.
 
 Word count and sentence count bear a statistically significant relation to the alignment score. Higher word counts are associated with higher masculine alignment, while higher sentence counts are associated with higher feminine alignment, suggesting that shorter job bulletins and/or shorter sentences (i.e., the same information broken up into more sentences) may attract more female applicants.
 
@@ -1145,7 +1145,7 @@ write.csv(df_dataDictionary, output_file_path)
 
 ```
 
-# 3) Semantic alignment analysis of LA City job bulletins
+# 3 Semantic alignment analysis of LA City job bulletins
 
 Now that the job class information has been extracted from the bulletins, it's time to put it to use.
 
@@ -1340,7 +1340,7 @@ df_look <- data.frame(Mean_Type = mean_type, Value = mean_vec)
 kable(df_look)
 
 ```
-There is quite a breach in salaries between the two groups. Job classes with high feminine semantic alignment pay substantially less than jobs with high masculine semantic alignment. The disparity is more pronounced for DWP salaries than for GEN salaries.
+There is quite a breach in salaries between the two groups. Job classes with high feminine semantic alignment pay substantially less than jobs with high masculine semantic alignment.
 
 This motivates a closer look. Is there a statistically significant relation between the feminine/masculine semantic alignment of bulletin texts and salary levels? To investigate, below I estimate the following model:
 
@@ -1387,7 +1387,7 @@ kable(m_table, "html") %>%
 
 
 ```
-The coefficient on the salary variable is not statistically significant. The coefficients on the word and sentence count variables, on the other hand, are highly significant. Feminine semantic alignment is negatively correlated with word count, but also positively correlated with sentence count. More specifically, the results say that the feminine alignment score decreases by about 0.03 for every 1% increase in word count, and increases by about 0.02 for every 1% increase in sentence count.
+The coefficient on the salary variable is statistically significant, suggesting a slight negative correlation between feminine semantic alignment and salary. The coefficients on the word and sentence count variables are highly significant, suggesting a slight decrease in feminine alignment for every 1% increase in word count, and a slight increase in feminine alignment for every 1% increase in sentence count.
 
 I noticed that many bulletins have extremely long sentences enumerating lists of duties or required skills separated by semicolons. The coefficients on the word and sentence count variables in this regression analysis suggest that such sentences may deter female applicants. To attract female applicants, bulletins should not merely be shorter but also more concise, i.e. expressing the same information in fewer words (purged of jargon, and so forth), broken up over more sentences.
 
@@ -1556,7 +1556,7 @@ kable(df_look)
 
 ```
 
-There is a considerable salary disparity between the two groups. The job classes with high Latino semantic alignment pay more than jobs with low Latino alignment. The disparity is greater for DWP salaries than for GEN salaries.
+There is a considerable salary disparity between the two groups. The job classes with high Latino semantic alignment pay more than jobs with low Latino alignment.
 
 Let's take a closer look via regression analysis.
 
@@ -1570,9 +1570,7 @@ kable(m_table, "html") %>%
   kable_styling(bootstrap_options = c("striped", "hover", "responsive"))
 
 ```
-This time, the coefficient on the salary variable is statistically significant, indicating a positive correlation between Latino semantic alignment and salary. More specifically, it suggests an increase in a bulletin's Latino semantic alignment score of about 0.05 for every 1% increase in salary.
-
-The coefficient on the word count variable is statistically insignificant, while the coefficient on sentence count is somewhat significant but close to zero. This suggests that word and sentence counts do not influence the Latino job applicant pool in any important way.
+The coefficient on the salary variable is statistically significant, indicating a positive correlation between Latino semantic alignment and salary. More specifically, it suggests an increase in a bulletin's Latino semantic alignment score of about 0.05 for every 1% increase in salary.
 
 (Again, the precise p values and coefficients will vary slightly from one run of word2vec to another due to inherent randomness in that function.)
 
